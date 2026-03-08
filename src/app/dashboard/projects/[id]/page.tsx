@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase-client'
 import Link from 'next/link'
 
 type Tab = 'query' | 'workbook' | 'checklist' | 'versions'
-type Message = { role: 'user' | 'assistant'; content: string }
+type Message = { role: 'user' | 'assistant'; content: string; webSearch?: boolean }
 
 export default function ProjectPage() {
   const { id } = useParams()
@@ -15,14 +15,24 @@ export default function ProjectPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [useWebSearch, setUseWebSearch] = useState(false)
+  const [userId, setUserId] = useState<string>('')
   const [workbookEntries, setWorkbookEntries] = useState<any[]>([])
   const [checklist, setChecklist] = useState<any[]>([])
   const [generatingChecklist, setGeneratingChecklist] = useState(false)
   const [generatingWorkbook, setGeneratingWorkbook] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { loadProject(); loadWorkbook(); loadChecklist() }, [id])
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+  useEffect(() => {
+    loadProject()
+    loadWorkbook()
+    loadChecklist()
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || ''))
+  }, [id])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   async function loadProject() {
     const { data } = await supabase.from('projects').select('*').eq('id', id).single()
@@ -47,11 +57,10 @@ export default function ProjectPage() {
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: id, question, history: messages, userId: (await supabase.auth.getUser()).data.user?.id })
+        body: JSON.stringify({ projectId: id, question, history: messages, userId, useWebSearch })
       })
       const data = await res.json()
-      setMessages(m => [...m, { role: 'assistant', content: data.answer }])
-      await supabase.from('projects').update({ query_count: (project?.query_count || 0) + 1 }).eq('id', id)
+      setMessages(m => [...m, { role: 'assistant', content: data.answer, webSearch: data.webSearchUsed }])
     } catch {
       setMessages(m => [...m, { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' }])
     }
@@ -93,8 +102,7 @@ export default function ProjectPage() {
   }
 
   async function toggleCheck(item: any) {
-    const updated = { ...item, completed: !item.completed }
-    setChecklist(c => c.map(i => i.id === item.id ? updated : i))
+    setChecklist(c => c.map(i => i.id === item.id ? { ...i, completed: !i.completed } : i))
     await supabase.from('checklist_items').update({ completed: !item.completed }).eq('id', item.id)
   }
 
@@ -104,10 +112,10 @@ export default function ProjectPage() {
   }
 
   const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key:'query',     label:'AI Query',  icon:'🤖' },
-    { key:'workbook',  label:'Workbook',  icon:'🗒'  },
-    { key:'checklist', label:'Checklist', icon:'✅'  },
-    { key:'versions',  label:'Versions',  icon:'🔔'  },
+    { key: 'query',     label: 'AI Query',  icon: '🤖' },
+    { key: 'workbook',  label: 'Workbook',  icon: '🗒'  },
+    { key: 'checklist', label: 'Checklist', icon: '✅'  },
+    { key: 'versions',  label: 'Versions',  icon: '🔔'  },
   ]
 
   if (!project) return (
@@ -118,6 +126,7 @@ export default function ProjectPage() {
 
   return (
     <div className="flex flex-col h-screen">
+      {/* Header */}
       <div className="flex items-center gap-4 px-8 py-5 border-b border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
         <Link href="/dashboard/projects" className="text-slate-ai hover:text-white transition-colors text-sm">← Projects</Link>
         <div className="w-px h-4 bg-white/10" />
@@ -128,6 +137,7 @@ export default function ProjectPage() {
         <span className="badge badge-blue text-[10px] ml-auto">{project.standard_name}</span>
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-1 px-8 py-3 border-b border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -139,6 +149,8 @@ export default function ProjectPage() {
       </div>
 
       <div className="flex-1 overflow-auto">
+
+        {/* AI QUERY TAB */}
         {tab === 'query' && (
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-auto p-8 flex flex-col gap-5">
@@ -147,10 +159,10 @@ export default function ProjectPage() {
                   <div className="text-4xl">🤖</div>
                   <div>
                     <div className="font-display font-bold text-xl mb-2">Ask anything about {project.name}</div>
-                    <p className="text-sm text-slate-ai max-w-sm">Ask questions in plain English. AIstands will answer based on your uploaded document.</p>
+                    <p className="text-sm text-slate-ai max-w-sm">Ask questions in plain English. AIstands answers from your document — optionally enhanced with web sources.</p>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-                    {["What are the main requirements?","Which clauses are mandatory?","What evidence do I need?","Summarise clause 7"].map(q => (
+                    {["What are the main requirements?","Which clauses are mandatory?","What evidence do I need?","Summarise clause 7","How do auditors assess this?"].map(q => (
                       <button key={q} onClick={() => setInput(q)}
                         className="text-sm px-4 py-2 rounded-lg border border-white/10 text-slate-ai hover:border-electric/30 hover:text-white transition-all">
                         {q}
@@ -159,21 +171,34 @@ export default function ProjectPage() {
                   </div>
                 </div>
               )}
+
               {messages.map((m, i) => (
                 <div key={i} className={`flex gap-4 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {m.role === 'assistant' && (
                     <div className="w-8 h-8 rounded-lg bg-electric/15 border border-electric/20 flex items-center justify-center text-sm flex-shrink-0 mt-1">🤖</div>
                   )}
-                  <div className={`max-w-[80%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed
-                    ${m.role === 'user' ? 'bg-electric text-white rounded-tr-sm' : 'bg-white/[0.04] border border-white/[0.07] text-[#aac4e0] rounded-tl-sm'}`}>
-                    {m.content}
+                  <div className="max-w-[80%] flex flex-col gap-1">
+                    {m.role === 'assistant' && m.webSearch && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-emerald-400/70 mb-1">
+                        <span>🌐</span> Web sources included
+                      </div>
+                    )}
+                    <div className={`rounded-2xl px-5 py-3.5 text-sm leading-relaxed whitespace-pre-wrap
+                      ${m.role === 'user'
+                        ? 'bg-electric text-white rounded-tr-sm'
+                        : 'bg-white/[0.04] border border-white/[0.07] text-[#aac4e0] rounded-tl-sm'
+                      }`}>
+                      {m.content}
+                    </div>
                   </div>
                 </div>
               ))}
+
               {loading && (
                 <div className="flex gap-4">
                   <div className="w-8 h-8 rounded-lg bg-electric/15 border border-electric/20 flex items-center justify-center text-sm flex-shrink-0">🤖</div>
                   <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl rounded-tl-sm px-5 py-3.5 flex items-center gap-2">
+                    {useWebSearch && <span className="text-xs text-emerald-400/70 mr-1">🌐 Searching web…</span>}
                     <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'0ms'}} />
                     <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'150ms'}} />
                     <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'300ms'}} />
@@ -182,17 +207,47 @@ export default function ProjectPage() {
               )}
               <div ref={bottomRef} />
             </div>
+
+            {/* Input area with web search toggle */}
             <div className="p-6 border-t border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
+              {/* Web search toggle */}
+              <div className="flex items-center gap-3 mb-3">
+                <button
+                  onClick={() => setUseWebSearch(!useWebSearch)}
+                  className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all
+                    ${useWebSearch
+                      ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400'
+                      : 'bg-white/[0.04] border-white/10 text-slate-ai hover:border-white/20 hover:text-white'
+                    }`}
+                >
+                  <span>🌐</span>
+                  <span>{useWebSearch ? 'Web search ON' : 'Web search OFF'}</span>
+                  <span className={`w-7 h-4 rounded-full transition-all relative ${useWebSearch ? 'bg-emerald-400' : 'bg-white/20'}`}>
+                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${useWebSearch ? 'left-3.5' : 'left-0.5'}`} />
+                  </span>
+                </button>
+                <span className="text-xs text-slate-ai">
+                  {useWebSearch ? 'Answers combine your document + live web sources' : 'Answers from your document only'}
+                </span>
+              </div>
+
               <div className="flex gap-3">
-                <input className="input flex-1" placeholder="Ask a question about your standard…"
-                  value={input} onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendQuery()} />
-                <button onClick={sendQuery} disabled={!input.trim() || loading} className="btn-primary px-6">Send</button>
+                <input
+                  className="input flex-1"
+                  placeholder="Ask a question about your standard…"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendQuery()}
+                />
+                <button onClick={sendQuery} disabled={!input.trim() || loading} className="btn-primary px-6">
+                  Send
+                </button>
               </div>
             </div>
           </div>
         )}
 
+        {/* WORKBOOK TAB */}
         {tab === 'workbook' && (
           <div className="p-8">
             <div className="flex justify-between items-center mb-6">
@@ -208,7 +263,7 @@ export default function ProjectPage() {
               <div className="card rounded-2xl p-16 text-center">
                 <div className="text-4xl mb-4">🗒</div>
                 <div className="font-display font-bold text-xl mb-3">No workbook entries yet</div>
-                <p className="text-sm text-slate-ai mb-6">Click "Generate workbook" and AIstands will extract all key requirements.</p>
+                <p className="text-sm text-slate-ai mb-6">Generate a workbook and AIstands will extract all key requirements from your standard.</p>
                 <button onClick={generateWorkbook} disabled={generatingWorkbook} className="btn-primary">
                   {generatingWorkbook ? 'Generating…' : '✨ Generate workbook'}
                 </button>
@@ -237,6 +292,7 @@ export default function ProjectPage() {
           </div>
         )}
 
+        {/* CHECKLIST TAB */}
         {tab === 'checklist' && (
           <div className="p-8">
             <div className="flex justify-between items-center mb-6">
@@ -286,6 +342,7 @@ export default function ProjectPage() {
           </div>
         )}
 
+        {/* VERSIONS TAB */}
         {tab === 'versions' && (
           <div className="p-8">
             <h2 className="font-display font-bold text-xl tracking-tight mb-2">Version Tracking</h2>
@@ -298,6 +355,7 @@ export default function ProjectPage() {
             </div>
           </div>
         )}
+
       </div>
     </div>
   )

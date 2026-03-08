@@ -8,7 +8,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 export async function POST(req: NextRequest) {
   try {
-    const { projectId, question, history, userId } = await req.json()
+    const { projectId, question, history, userId, useWebSearch } = await req.json()
 
     if (!userId) return NextResponse.json({ answer: 'Please refresh the page and try again.' })
 
@@ -27,116 +27,132 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ answer: 'Project not found.' })
     }
 
-    // Build messages array
-    const conversationHistory = (history || []).slice(-6).map((m: any) => ({
+    const conversationHistory = (history || []).slice(-4).map((m: any) => ({
       role: m.role,
       content: m.content
     }))
 
-    let response
+    const system = `You are AIstands, an expert AI assistant for standards and compliance professionals.
 
-    // If we have saved text, use it directly — fast path
+Your job:
+- Answer questions clearly and accurately in plain English
+- Always reference specific clause numbers from the document when relevant
+- Be precise — compliance professionals rely on your answers for real decisions
+- If using web sources, clearly distinguish between what the document says vs external guidance
+- If unsure about something, say so honestly${useWebSearch ? `
+- When using web search, prioritise official sources: standards bodies (ISO, BSI, ANSI), certification bodies (UKAS, IAQG), government regulators, and established quality/compliance organisations
+- Always make clear which parts of your answer come from the uploaded document vs web sources` : ''}`
+
+    let answer = ''
+
     if (project.document_text && project.document_text.length > 100) {
+      // Fast path — use saved text
+      const userMessage = useWebSearch
+        ? `Using the document below AND web search for supporting guidance, answer this question. Clearly label what comes from the document vs web sources.\n\nDocument:\n<document>\n${project.document_text.slice(0, 25000)}\n</document>\n\nQuestion: ${question}`
+        : `Document:\n\n<document>\n${project.document_text.slice(0, 30000)}\n</document>\n\nQuestion: ${question}`
+
       const messages: any[] = [
         ...conversationHistory,
-        {
-          role: 'user',
-          content: `Document:\n\n<document>\n${project.document_text.slice(0, 40000)}\n</document>\n\nQuestion: ${question}`
-        }
+        { role: 'user', content: userMessage }
       ]
-      response = await anthropic.messages.create({
+
+      const requestParams: any = {
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        system: `You are AIstands, an expert AI assistant for standards and compliance. Answer clearly in plain English, reference clause numbers. Be precise.`,
+        system,
         messages,
-      })
+      }
+
+      if (useWebSearch) {
+        requestParams.tools = [{ type: 'web_search_20250305', name: 'web_search' }]
+      }
+
+      const response = await anthropic.messages.create(requestParams)
+      answer = response.content
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => b.text)
+        .join('\n')
+
     } else {
-      // No saved text — send the PDF directly to Claude
+      // No saved text — send PDF directly
       const { data: fileData, error: storageError } = await supabase.storage
         .from('documents')
         .download(project.file_path)
 
       if (storageError || !fileData) {
-        return NextResponse.json({ answer: `Could not access the document. Storage error: ${storageError?.message}` })
+        return NextResponse.json({ answer: `Could not access document: ${storageError?.message}` })
       }
 
       const bytes = await fileData.arrayBuffer()
       const base64 = Buffer.from(bytes).toString('base64')
 
-      const messages: any[] = [
-        ...conversationHistory,
+      const userContent: any[] = [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
         {
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: base64 }
-            } as any,
-            {
-              type: 'text',
-              text: question
-            }
-          ]
+          type: 'text',
+          text: useWebSearch
+            ? `Answer this question using both the document above AND web search for supporting guidance. Clearly label what comes from the document vs web sources.\n\nQuestion: ${question}`
+            : question
         }
       ]
 
-      response = await anthropic.messages.create({
+      const requestParams: any = {
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        system: `You are AIstands, an expert AI assistant for standards and compliance. Answer clearly in plain English, reference clause numbers. Be precise.`,
-        messages,
-      })
-
-      // Save extracted knowledge for future queries
-      const answer = response.content[0].type === 'text' ? response.content[0].text : ''
-      
-      // Also save a summary of the doc so future queries are faster
-      try {
-        const summaryRes = await anthropic.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4000,
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'document',
-                source: { type: 'base64', media_type: 'application/pdf', data: base64 }
-              } as any,
-              {
-                type: 'text',
-                text: 'Extract all text from this document preserving all clause numbers, requirements and structure. Be thorough.'
-              }
-            ]
-          }]
-        })
-        const extractedText = summaryRes.content[0].type === 'text' ? summaryRes.content[0].text : ''
-        if (extractedText.length > 100) {
-          await supabase.from('projects').update({
-            document_text: extractedText.slice(0, 50000)
-          }).eq('id', projectId)
-        }
-      } catch (e) {
-        // Non-critical — just means next query will also use PDF directly
-        console.log('Background extraction failed, will retry next query')
+        system,
+        messages: [
+          ...conversationHistory,
+          { role: 'user', content: userContent }
+        ],
       }
 
-      await supabase.from('projects').update({
-        query_count: (project.query_count || 0) + 1
-      }).eq('id', projectId)
+      if (useWebSearch) {
+        requestParams.tools = [{ type: 'web_search_20250305', name: 'web_search' }]
+      }
 
-      return NextResponse.json({ answer })
+      const response = await anthropic.messages.create(requestParams)
+      answer = response.content
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => b.text)
+        .join('\n')
+
+      // Background text extraction after delay
+      setTimeout(async () => {
+        try {
+          const extractRes = await anthropic.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 4000,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } } as any,
+                { type: 'text', text: 'Extract all text from this document preserving clause numbers and requirements.' }
+              ]
+            }]
+          })
+          const extracted = extractRes.content[0].type === 'text' ? extractRes.content[0].text : ''
+          if (extracted.length > 100) {
+            await supabase.from('projects').update({
+              document_text: extracted.slice(0, 50000)
+            }).eq('id', projectId)
+          }
+        } catch (e) {
+          console.log('Background extraction skipped')
+        }
+      }, 10000)
     }
-
-    const answer = response.content[0].type === 'text' ? response.content[0].text : 'No response.'
 
     await supabase.from('projects').update({
       query_count: (project.query_count || 0) + 1
     }).eq('id', projectId)
 
-    return NextResponse.json({ answer })
+    return NextResponse.json({ answer, webSearchUsed: useWebSearch })
 
   } catch (err: any) {
     console.error('Query error:', err.message)
+    if (err.message?.includes('rate_limit')) {
+      return NextResponse.json({ answer: 'The AI is busy right now. Please wait 30 seconds and try again.' })
+    }
     return NextResponse.json({ answer: `Error: ${err.message}` })
   }
 }

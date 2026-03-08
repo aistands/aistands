@@ -14,8 +14,6 @@ function ProjectsContent() {
   const [creatingStatus, setCreatingStatus] = useState('')
   const [name, setName] = useState('')
   const [file, setFile] = useState<File|null>(null)
-  const [suggestions, setSuggestions] = useState<string[]>([])
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState('')
 
@@ -29,22 +27,6 @@ function ProjectsContent() {
   async function handleFileSelect(f: File) {
     setFile(f)
     setError('')
-    setSuggestions([])
-    // Only try name suggestions for small files or text files
-    if (f.size < 500000 || f.type === 'text/plain') {
-      setLoadingSuggestions(true)
-      try {
-        const text = f.type === 'text/plain' ? await f.text() : f.name
-        const res = await fetch('/api/projects/suggest-names', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ documentText: text.slice(0, 2000) })
-        })
-        const data = await res.json()
-        setSuggestions(data.suggestions || [])
-      } catch {}
-      setLoadingSuggestions(false)
-    }
   }
 
   async function createProject() {
@@ -56,15 +38,15 @@ function ProjectsContent() {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) { setError('Not logged in'); setCreating(false); return }
 
-      // Step 1 — Upload file to storage
+      // Step 1 — Upload file to Supabase storage
       setCreatingStatus('Uploading document…')
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const filePath = `${user.id}/${Date.now()}-${safeName}`
       const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file)
       if (uploadError) { setError(`Upload failed: ${uploadError.message}`); setCreating(false); return }
 
-      // Step 2 — Extract text
-      setCreatingStatus('Reading document… (this may take up to 30 seconds for large PDFs)')
+      // Step 2 — Extract text via API (Claude reads the PDF)
+      setCreatingStatus('Reading document with AI… (may take 30s for large PDFs)')
       let documentText = ''
       try {
         const formData = new FormData()
@@ -72,12 +54,13 @@ function ProjectsContent() {
         const extractRes = await fetch('/api/extract-text', { method: 'POST', body: formData })
         const extractData = await extractRes.json()
         documentText = extractData.text || ''
+        console.log('Extracted text length:', documentText.length)
       } catch (e) {
-        console.warn('Text extraction failed, will retry on first query')
+        console.warn('Text extraction failed:', e)
       }
 
-      // Step 3 — Create project record
-      setCreatingStatus('Creating project…')
+      // Step 3 — Create project with text included
+      setCreatingStatus('Saving project…')
       const { data: project, error: insertError } = await supabase.from('projects').insert({
         user_id: user.id,
         name,
@@ -90,6 +73,16 @@ function ProjectsContent() {
       }).select().single()
 
       if (insertError) { setError(`Failed to save: ${insertError.message}`); setCreating(false); return }
+
+      // Step 4 — If we got text, verify it saved by doing a quick update
+      if (documentText.length > 100 && project) {
+        const { error: updateError } = await supabase.from('projects')
+          .update({ document_text: documentText.slice(0, 50000) })
+          .eq('id', project.id)
+        if (updateError) console.warn('Update failed:', updateError.message)
+        else console.log('Document text saved successfully')
+      }
+
       if (project) router.push(`/dashboard/projects/${project.id}`)
 
     } catch (err: any) {
@@ -147,7 +140,7 @@ function ProjectsContent() {
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-display font-black text-xl">New project</h2>
               {!creating && (
-                <button onClick={() => { setShowModal(false); setSuggestions([]); setFile(null); setName(''); setError('') }}
+                <button onClick={() => { setShowModal(false); setFile(null); setName(''); setError('') }}
                   className="text-slate-ai hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10">✕</button>
               )}
             </div>
@@ -185,28 +178,6 @@ function ProjectsContent() {
               <label className="label">Project name</label>
               <input className="input" placeholder="e.g. ISO 9001 Compliance 2026"
                 value={name} onChange={e => setName(e.target.value)} disabled={creating} />
-              {loadingSuggestions && (
-                <div className="mt-2 text-xs text-slate-ai flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full border-2 border-electric border-t-transparent animate-spin" />
-                  AI is suggesting names…
-                </div>
-              )}
-              {suggestions.length > 0 && !loadingSuggestions && !creating && (
-                <div className="mt-3">
-                  <div className="text-[11px] text-slate-ai mb-2 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-electric" /> AI suggestions — click to use
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {suggestions.map(s => (
-                      <button key={s} onClick={() => setName(s)}
-                        className={`text-xs px-3 py-1.5 rounded-lg border transition-all
-                          ${name === s ? 'bg-electric/15 border-electric/40 text-electric-bright' : 'border-white/10 text-slate-ai hover:border-electric/30 hover:text-white'}`}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {creating && creatingStatus && (
@@ -219,7 +190,7 @@ function ProjectsContent() {
             {error && <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2 mb-4">{error}</div>}
 
             <div className="flex gap-3">
-              <button onClick={() => { setShowModal(false); setFile(null); setName(''); setSuggestions([]); setError('') }}
+              <button onClick={() => { setShowModal(false); setFile(null); setName(''); setError('') }}
                 disabled={creating} className="btn-ghost flex-1">Cancel</button>
               <button onClick={createProject} disabled={!name || !file || creating} className="btn-primary flex-1">
                 {creating ? 'Creating…' : 'Create project'}

@@ -1,10 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
-export default function ProjectsPage() {
+function ProjectsContent() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -181,5 +181,13 @@ export default function ProjectsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function ProjectsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-ai">Loading…</div>}>
+      <ProjectsContent />
+    </Suspense>
   )
 }

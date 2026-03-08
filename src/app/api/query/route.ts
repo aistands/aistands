@@ -7,67 +7,92 @@ export const maxDuration = 60
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 export async function POST(req: NextRequest) {
-  console.log('=== QUERY ROUTE CALLED ===')
-  
   try {
-    const body = await req.json()
-    const { projectId, question, history, userId } = body
-    console.log('projectId:', projectId, 'userId:', userId, 'question:', question)
+    const { projectId, question, history, userId } = await req.json()
 
-    if (!userId) {
-      console.log('ERROR: No userId in request')
-      return NextResponse.json({ answer: 'No user ID provided.' })
-    }
+    if (!userId) return NextResponse.json({ answer: 'Please refresh the page and try again.' })
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    console.log('Fetching project...')
-    const { data: project, error: projectError } = await supabase
+    const { data: project } = await supabase
       .from('projects')
       .select('document_text, file_path, file_name, user_id, query_count')
       .eq('id', projectId)
       .single()
 
-    if (projectError) {
-      console.log('Project error:', projectError.message)
-      return NextResponse.json({ answer: `Project error: ${projectError.message}` })
-    }
-    if (!project) {
-      console.log('Project not found')
+    if (!project || project.user_id !== userId) {
       return NextResponse.json({ answer: 'Project not found.' })
     }
-    console.log('Project found, file:', project.file_name, 'text length:', project.document_text?.length || 0)
 
-    let documentText = project.document_text || ''
+    // Build messages array
+    const conversationHistory = (history || []).slice(-6).map((m: any) => ({
+      role: m.role,
+      content: m.content
+    }))
 
-    if (!documentText || documentText.length < 100) {
-      console.log('No document text, downloading from storage...')
+    let response
+
+    // If we have saved text, use it directly — fast path
+    if (project.document_text && project.document_text.length > 100) {
+      const messages: any[] = [
+        ...conversationHistory,
+        {
+          role: 'user',
+          content: `Document:\n\n<document>\n${project.document_text.slice(0, 40000)}\n</document>\n\nQuestion: ${question}`
+        }
+      ]
+      response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are AIstands, an expert AI assistant for standards and compliance. Answer clearly in plain English, reference clause numbers. Be precise.`,
+        messages,
+      })
+    } else {
+      // No saved text — send the PDF directly to Claude
       const { data: fileData, error: storageError } = await supabase.storage
         .from('documents')
         .download(project.file_path)
 
-      if (storageError) {
-        console.log('Storage error:', storageError.message)
-        return NextResponse.json({ answer: `Storage error: ${storageError.message}` })
+      if (storageError || !fileData) {
+        return NextResponse.json({ answer: `Could not access the document. Storage error: ${storageError?.message}` })
       }
 
-      if (!fileData) {
-        console.log('No file data returned')
-        return NextResponse.json({ answer: 'Could not download the document.' })
-      }
+      const bytes = await fileData.arrayBuffer()
+      const base64 = Buffer.from(bytes).toString('base64')
 
-      console.log('File downloaded, size:', fileData.size)
+      const messages: any[] = [
+        ...conversationHistory,
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: { type: 'base64', media_type: 'application/pdf', data: base64 }
+            } as any,
+            {
+              type: 'text',
+              text: question
+            }
+          ]
+        }
+      ]
 
-      if (project.file_name?.toLowerCase().endsWith('.pdf')) {
-        console.log('Extracting text from PDF via Claude...')
-        const bytes = await fileData.arrayBuffer()
-        const base64 = Buffer.from(bytes).toString('base64')
-        console.log('Base64 length:', base64.length)
+      response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are AIstands, an expert AI assistant for standards and compliance. Answer clearly in plain English, reference clause numbers. Be precise.`,
+        messages,
+      })
 
-        const extractRes = await anthropic.messages.create({
+      // Save extracted knowledge for future queries
+      const answer = response.content[0].type === 'text' ? response.content[0].text : ''
+      
+      // Also save a summary of the doc so future queries are faster
+      try {
+        const summaryRes = await anthropic.messages.create({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 4000,
           messages: [{
@@ -77,50 +102,32 @@ export async function POST(req: NextRequest) {
                 type: 'document',
                 source: { type: 'base64', media_type: 'application/pdf', data: base64 }
               } as any,
-              { type: 'text', text: 'Extract all the text from this document. Return only the text content, preserving clause numbers and structure.' }
+              {
+                type: 'text',
+                text: 'Extract all text from this document preserving all clause numbers, requirements and structure. Be thorough.'
+              }
             ]
           }]
         })
-
-        documentText = extractRes.content[0].type === 'text' ? extractRes.content[0].text : ''
-        console.log('Extracted text length:', documentText.length)
-
-        if (documentText.length > 100) {
+        const extractedText = summaryRes.content[0].type === 'text' ? summaryRes.content[0].text : ''
+        if (extractedText.length > 100) {
           await supabase.from('projects').update({
-            document_text: documentText.slice(0, 50000)
+            document_text: extractedText.slice(0, 50000)
           }).eq('id', projectId)
-          console.log('Saved extracted text to project')
         }
-      } else {
-        documentText = await fileData.text()
-        console.log('Plain text length:', documentText.length)
+      } catch (e) {
+        // Non-critical — just means next query will also use PDF directly
+        console.log('Background extraction failed, will retry next query')
       }
+
+      await supabase.from('projects').update({
+        query_count: (project.query_count || 0) + 1
+      }).eq('id', projectId)
+
+      return NextResponse.json({ answer })
     }
 
-    if (!documentText || documentText.length < 50) {
-      console.log('Still no document text after extraction')
-      return NextResponse.json({ answer: 'Could not read the document content. Please re-upload the PDF.' })
-    }
-
-    console.log('Querying Claude with document text length:', documentText.length)
-
-    const messages: any[] = [
-      ...(history || []).slice(-6).map((m: any) => ({ role: m.role, content: m.content })),
-      {
-        role: 'user',
-        content: `Document:\n\n<document>\n${documentText.slice(0, 40000)}\n</document>\n\nQuestion: ${question}`
-      }
-    ]
-
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      system: `You are AIstands, an expert AI assistant specialising in standards, regulations and compliance documents. Answer questions clearly and accurately in plain English. Always reference specific clause numbers where relevant. Be precise — compliance professionals rely on your answers. If unsure, say so honestly.`,
-      messages,
-    })
-
-    const answer = response.content[0].type === 'text' ? response.content[0].text : 'No response generated.'
-    console.log('Got answer, length:', answer.length)
+    const answer = response.content[0].type === 'text' ? response.content[0].text : 'No response.'
 
     await supabase.from('projects').update({
       query_count: (project.query_count || 0) + 1
@@ -129,7 +136,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ answer })
 
   } catch (err: any) {
-    console.log('CAUGHT ERROR:', err.message, err.stack)
+    console.error('Query error:', err.message)
     return NextResponse.json({ answer: `Error: ${err.message}` })
   }
 }

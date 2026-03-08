@@ -72,7 +72,8 @@ function ProjectsContent() {
       if (userError || !user) { setError('Not logged in'); setCreating(false); return }
 
       // Upload file to storage
-      const filePath = `${user.id}/${Date.now()}-${file.name}`
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+      const filePath = `${user.id}/${Date.now()}-${safeName}`
       const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file)
       if (uploadError) { setError(`Upload failed: ${uploadError.message}`); setCreating(false); return }
 

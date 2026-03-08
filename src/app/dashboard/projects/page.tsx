@@ -4,6 +4,24 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
+async function extractTextFromFile(file: File): Promise<string> {
+  // For text files, read directly
+  if (file.type === 'text/plain') {
+    return await file.text()
+  }
+  // For PDFs and other files, send to API for extraction
+  const formData = new FormData()
+  formData.append('file', file)
+  try {
+    const res = await fetch('/api/extract-text', { method: 'POST', body: formData })
+    const data = await res.json()
+    return data.text || ''
+  } catch {
+    // Fallback: just use filename as context
+    return `Document: ${file.name}`
+  }
+}
+
 function ProjectsContent() {
   const supabase = createClient()
   const router = useRouter()
@@ -16,6 +34,7 @@ function ProjectsContent() {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => { loadProjects() }, [])
 
@@ -26,16 +45,20 @@ function ProjectsContent() {
 
   async function handleFileSelect(f: File) {
     setFile(f)
+    setError('')
     setLoadingSuggestions(true)
+    setSuggestions([])
     try {
-      const text = await f.text()
-      const res = await fetch('/api/projects/suggest-names', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentText: text.slice(0, 2000) })
-      })
-      const data = await res.json()
-      setSuggestions(data.suggestions || [])
+      const text = await extractTextFromFile(f)
+      if (text && text.length > 50) {
+        const res = await fetch('/api/projects/suggest-names', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ documentText: text.slice(0, 2000) })
+        })
+        const data = await res.json()
+        setSuggestions(data.suggestions || [])
+      }
     } catch {}
     setLoadingSuggestions(false)
   }
@@ -43,23 +66,36 @@ function ProjectsContent() {
   async function createProject() {
     if (!name || !file) return
     setCreating(true)
+    setError('')
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const fileText = await file.text()
-      const filePath = `${user!.id}/${Date.now()}-${file.name}`
-      await supabase.storage.from('documents').upload(filePath, file)
-      const { data: project } = await supabase.from('projects').insert({
-        user_id: user!.id,
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) { setError('Not logged in'); setCreating(false); return }
+
+      // Upload file to storage
+      const filePath = `${user.id}/${Date.now()}-${file.name}`
+      const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file)
+      if (uploadError) { setError(`Upload failed: ${uploadError.message}`); setCreating(false); return }
+
+      // Extract text
+      const fileText = await extractTextFromFile(file)
+
+      // Create project record
+      const { data: project, error: insertError } = await supabase.from('projects').insert({
+        user_id: user.id,
         name,
         file_path: filePath,
         file_name: file.name,
         document_text: fileText.slice(0, 50000),
-        standard_name: suggestions[0] || file.name.replace('.pdf','').replace('.txt',''),
+        standard_name: name,
         query_count: 0,
         created_at: new Date().toISOString()
       }).select().single()
+
+      if (insertError) { setError(`Failed to save project: ${insertError.message}`); setCreating(false); return }
       if (project) router.push(`/dashboard/projects/${project.id}`)
-    } catch (err) { console.error(err) }
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong')
+    }
     setCreating(false)
   }
 
@@ -110,7 +146,7 @@ function ProjectsContent() {
           <div className="w-full max-w-[500px] rounded-2xl p-8" style={{background:'#132952',border:'1px solid rgba(255,255,255,0.1)'}}>
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-display font-black text-xl">New project</h2>
-              <button onClick={() => { setShowModal(false); setSuggestions([]); setFile(null); setName('') }}
+              <button onClick={() => { setShowModal(false); setSuggestions([]); setFile(null); setName(''); setError('') }}
                 className="text-slate-ai hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10">✕</button>
             </div>
 
@@ -170,8 +206,10 @@ function ProjectsContent() {
               )}
             </div>
 
+            {error && <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2 mb-4">{error}</div>}
+
             <div className="flex gap-3">
-              <button onClick={() => { setShowModal(false); setFile(null); setName(''); setSuggestions([]) }}
+              <button onClick={() => { setShowModal(false); setFile(null); setName(''); setSuggestions([]); setError('') }}
                 className="btn-ghost flex-1">Cancel</button>
               <button onClick={createProject} disabled={!name || !file || creating} className="btn-primary flex-1">
                 {creating ? 'Creating…' : 'Create project'}

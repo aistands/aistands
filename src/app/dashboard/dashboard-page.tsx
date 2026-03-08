@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-client'
 
 export default function DashboardPage() {
   const supabase = createClient()
@@ -29,13 +29,11 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8 max-w-[1000px]">
-      {/* Header */}
       <div className="mb-10">
         <h1 className="font-display font-black text-3xl tracking-[-0.02em] mb-1">{greeting}, {firstName}</h1>
         <p className="text-sm text-slate-ai">Here's your AIstands workspace.</p>
       </div>
 
-      {/* Quick actions */}
       <div className="grid grid-cols-4 gap-4 mb-10">
         {[
           { href:'/dashboard/projects?new=1', icon:'➕', label:'New project', color:'bg-electric/10 border-electric/20 hover:bg-electric/15' },
@@ -50,7 +48,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Recent projects */}
       <div className="mb-10">
         <div className="flex justify-between items-center mb-5">
           <h2 className="font-display font-bold text-lg tracking-tight">Recent projects</h2>
@@ -80,24 +77,22 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Usage */}
       <div className="card rounded-2xl p-6">
         <h2 className="font-display font-bold text-base mb-5 tracking-tight">This month's usage</h2>
         <div className="grid grid-cols-3 gap-6">
           {[
-            { label:'AI Queries', used: queryCount, total: 5, unit:'queries' },
-            { label:'Projects',   used: projects.length, total: 1, unit:'projects' },
-            { label:'Documents',  used: 0, total: 1, unit:'uploads' },
-          ].map(({ label, used, total, unit }) => (
+            { label:'AI Queries', used: queryCount, total: 5 },
+            { label:'Projects',   used: projects.length, total: 1 },
+            { label:'Documents',  used: 0, total: 1 },
+          ].map(({ label, used, total }) => (
             <div key={label}>
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-slate-ai">{label}</span>
-                <span className="font-medium">{used} / {total === -1 ? '∞' : total}</span>
+                <span className="font-medium">{used} / {total}</span>
               </div>
               <div className="h-1.5 bg-white/[0.07] rounded-full overflow-hidden">
-                <div className="h-full bg-electric rounded-full transition-all" style={{width: total === -1 ? '10%' : `${Math.min((used/total)*100,100)}%`}} />
+                <div className="h-full bg-electric rounded-full transition-all" style={{width:`${Math.min((used/total)*100,100)}%`}} />
               </div>
-              <div className="text-[11px] text-slate-ai mt-1">{unit}</div>
             </div>
           ))}
         </div>

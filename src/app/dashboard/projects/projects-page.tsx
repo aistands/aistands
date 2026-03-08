@@ -1,8 +1,8 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-client'
 
 export default function ProjectsPage() {
   const supabase = createClient()
@@ -46,27 +46,20 @@ export default function ProjectsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const fileText = await file.text()
-
-      // Store document in Supabase storage
       const filePath = `${user!.id}/${Date.now()}-${file.name}`
       await supabase.storage.from('documents').upload(filePath, file)
-
-      // Create project record
       const { data: project } = await supabase.from('projects').insert({
         user_id: user!.id,
         name,
         file_path: filePath,
         file_name: file.name,
-        document_text: fileText.slice(0, 50000), // store first 50k chars
+        document_text: fileText.slice(0, 50000),
         standard_name: suggestions[0] || file.name.replace('.pdf','').replace('.txt',''),
         query_count: 0,
         created_at: new Date().toISOString()
       }).select().single()
-
       if (project) router.push(`/dashboard/projects/${project.id}`)
-    } catch (err) {
-      console.error(err)
-    }
+    } catch (err) { console.error(err) }
     setCreating(false)
   }
 
@@ -77,9 +70,7 @@ export default function ProjectsPage() {
           <h1 className="font-display font-black text-3xl tracking-[-0.02em] mb-1">Projects</h1>
           <p className="text-sm text-slate-ai">Each project is one standard or document you're working with.</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary">
-          + New project
-        </button>
+        <button onClick={() => setShowModal(true)} className="btn-primary">+ New project</button>
       </div>
 
       {projects.length === 0 ? (
@@ -114,7 +105,6 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* New Project Modal */}
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50 px-4" style={{background:'rgba(11,30,62,0.85)',backdropFilter:'blur(8px)'}}>
           <div className="w-full max-w-[500px] rounded-2xl p-8" style={{background:'#132952',border:'1px solid rgba(255,255,255,0.1)'}}>
@@ -124,7 +114,6 @@ export default function ProjectsPage() {
                 className="text-slate-ai hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10">✕</button>
             </div>
 
-            {/* File upload */}
             <div className="mb-5">
               <label className="label">Upload your standard</label>
               <div
@@ -153,13 +142,10 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            {/* Project name */}
             <div className="mb-5">
               <label className="label">Project name</label>
               <input className="input" placeholder="e.g. ISO 9001 Compliance 2026"
                 value={name} onChange={e => setName(e.target.value)} />
-
-              {/* AI suggestions */}
               {loadingSuggestions && (
                 <div className="mt-2 text-xs text-slate-ai flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full border-2 border-electric border-t-transparent animate-spin" />
@@ -187,8 +173,7 @@ export default function ProjectsPage() {
             <div className="flex gap-3">
               <button onClick={() => { setShowModal(false); setFile(null); setName(''); setSuggestions([]) }}
                 className="btn-ghost flex-1">Cancel</button>
-              <button onClick={createProject} disabled={!name || !file || creating}
-                className="btn-primary flex-1">
+              <button onClick={createProject} disabled={!name || !file || creating} className="btn-primary flex-1">
                 {creating ? 'Creating…' : 'Create project'}
               </button>
             </div>

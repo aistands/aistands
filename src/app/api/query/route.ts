@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createServerClient } from '@supabase/ssr'
 import Anthropic from '@anthropic-ai/sdk'
 
-// Increase timeout for PDF processing
 export const maxDuration = 60
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
@@ -10,10 +9,24 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 export async function POST(req: NextRequest) {
   try {
     const { projectId, question, history } = await req.json()
-    const supabase = createServerSupabaseClient()
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ answer: 'Please log in again.' })
+    // Build Supabase client from request cookies directly
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return req.cookies.getAll() },
+          setAll() {},
+        },
+      }
+    )
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ answer: 'Session expired — please refresh the page and try again.' })
+    }
 
     // Get project
     const { data: project } = await supabase
@@ -56,7 +69,6 @@ export async function POST(req: NextRequest) {
 
           documentText = extractRes.content[0].type === 'text' ? extractRes.content[0].text : ''
 
-          // Save for future queries
           if (documentText.length > 100) {
             await supabase.from('projects').update({
               document_text: documentText.slice(0, 50000)
@@ -76,15 +88,12 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Query Claude with the document
+    // Query Claude
     const messages: any[] = [
-      ...(history || []).slice(-6).map((m: any) => ({
-        role: m.role,
-        content: m.content
-      })),
+      ...(history || []).slice(-6).map((m: any) => ({ role: m.role, content: m.content })),
       {
         role: 'user',
-        content: `Document content:\n\n<document>\n${documentText.slice(0, 40000)}\n</document>\n\nQuestion: ${question}`
+        content: `Document:\n\n<document>\n${documentText.slice(0, 40000)}\n</document>\n\nQuestion: ${question}`
       }
     ]
 
@@ -93,13 +102,12 @@ export async function POST(req: NextRequest) {
       max_tokens: 1000,
       system: `You are AIstands, an expert AI assistant specialising in standards, regulations and compliance documents. 
 Answer questions clearly and accurately in plain English. Always reference specific clause numbers where relevant. 
-Be precise — compliance professionals rely on your answers for real decisions. If you are unsure, say so honestly.`,
+Be precise — compliance professionals rely on your answers. If unsure, say so honestly.`,
       messages,
     })
 
     const answer = response.content[0].type === 'text' ? response.content[0].text : 'No response generated.'
 
-    // Increment query count
     await supabase.from('projects').update({
       query_count: (project.query_count || 0) + 1
     }).eq('id', projectId)
@@ -108,8 +116,6 @@ Be precise — compliance professionals rely on your answers for real decisions.
 
   } catch (err: any) {
     console.error('Query error:', err)
-    return NextResponse.json({
-      answer: `Something went wrong: ${err.message}. Please try again.`
-    })
+    return NextResponse.json({ answer: `Something went wrong: ${err.message}` })
   }
 }

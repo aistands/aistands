@@ -4,24 +4,6 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
-async function extractTextFromFile(file: File): Promise<string> {
-  // For text files, read directly
-  if (file.type === 'text/plain') {
-    return await file.text()
-  }
-  // For PDFs and other files, send to API for extraction
-  const formData = new FormData()
-  formData.append('file', file)
-  try {
-    const res = await fetch('/api/extract-text', { method: 'POST', body: formData })
-    const data = await res.json()
-    return data.text || ''
-  } catch {
-    // Fallback: just use filename as context
-    return `Document: ${file.name}`
-  }
-}
-
 function ProjectsContent() {
   const supabase = createClient()
   const router = useRouter()
@@ -29,6 +11,7 @@ function ProjectsContent() {
   const [projects, setProjects] = useState<any[]>([])
   const [showModal, setShowModal] = useState(searchParams.get('new') === '1')
   const [creating, setCreating] = useState(false)
+  const [creatingStatus, setCreatingStatus] = useState('')
   const [name, setName] = useState('')
   const [file, setFile] = useState<File|null>(null)
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -46,11 +29,12 @@ function ProjectsContent() {
   async function handleFileSelect(f: File) {
     setFile(f)
     setError('')
-    setLoadingSuggestions(true)
     setSuggestions([])
-    try {
-      const text = await extractTextFromFile(f)
-      if (text && text.length > 50) {
+    // Only try name suggestions for small files or text files
+    if (f.size < 500000 || f.type === 'text/plain') {
+      setLoadingSuggestions(true)
+      try {
+        const text = f.type === 'text/plain' ? await f.text() : f.name
         const res = await fetch('/api/projects/suggest-names', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -58,46 +42,61 @@ function ProjectsContent() {
         })
         const data = await res.json()
         setSuggestions(data.suggestions || [])
-      }
-    } catch {}
-    setLoadingSuggestions(false)
+      } catch {}
+      setLoadingSuggestions(false)
+    }
   }
 
   async function createProject() {
     if (!name || !file) return
     setCreating(true)
     setError('')
+
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) { setError('Not logged in'); setCreating(false); return }
 
-      // Upload file to storage
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+      // Step 1 — Upload file to storage
+      setCreatingStatus('Uploading document…')
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const filePath = `${user.id}/${Date.now()}-${safeName}`
       const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file)
       if (uploadError) { setError(`Upload failed: ${uploadError.message}`); setCreating(false); return }
 
-      // Extract text
-      const fileText = await extractTextFromFile(file)
+      // Step 2 — Extract text
+      setCreatingStatus('Reading document… (this may take up to 30 seconds for large PDFs)')
+      let documentText = ''
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const extractRes = await fetch('/api/extract-text', { method: 'POST', body: formData })
+        const extractData = await extractRes.json()
+        documentText = extractData.text || ''
+      } catch (e) {
+        console.warn('Text extraction failed, will retry on first query')
+      }
 
-      // Create project record
+      // Step 3 — Create project record
+      setCreatingStatus('Creating project…')
       const { data: project, error: insertError } = await supabase.from('projects').insert({
         user_id: user.id,
         name,
         file_path: filePath,
         file_name: file.name,
-        document_text: fileText.slice(0, 50000),
+        document_text: documentText.slice(0, 50000),
         standard_name: name,
         query_count: 0,
         created_at: new Date().toISOString()
       }).select().single()
 
-      if (insertError) { setError(`Failed to save project: ${insertError.message}`); setCreating(false); return }
+      if (insertError) { setError(`Failed to save: ${insertError.message}`); setCreating(false); return }
       if (project) router.push(`/dashboard/projects/${project.id}`)
+
     } catch (err: any) {
       setError(err.message || 'Something went wrong')
     }
     setCreating(false)
+    setCreatingStatus('')
   }
 
   return (
@@ -147,8 +146,10 @@ function ProjectsContent() {
           <div className="w-full max-w-[500px] rounded-2xl p-8" style={{background:'#132952',border:'1px solid rgba(255,255,255,0.1)'}}>
             <div className="flex justify-between items-center mb-6">
               <h2 className="font-display font-black text-xl">New project</h2>
-              <button onClick={() => { setShowModal(false); setSuggestions([]); setFile(null); setName(''); setError('') }}
-                className="text-slate-ai hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10">✕</button>
+              {!creating && (
+                <button onClick={() => { setShowModal(false); setSuggestions([]); setFile(null); setName(''); setError('') }}
+                  className="text-slate-ai hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10">✕</button>
+              )}
             </div>
 
             <div className="mb-5">
@@ -157,8 +158,9 @@ function ProjectsContent() {
                 onDragOver={e => { e.preventDefault(); setDragOver(true) }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if(f) handleFileSelect(f) }}
-                onClick={() => document.getElementById('file-input')?.click()}
-                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
+                onClick={() => !creating && document.getElementById('file-input')?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all
+                  ${creating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                   ${dragOver ? 'border-electric bg-electric/10' : 'border-white/20 hover:border-electric/50 hover:bg-electric/5'}`}
               >
                 <input id="file-input" type="file" className="hidden" accept=".pdf,.txt,.doc,.docx"
@@ -182,14 +184,14 @@ function ProjectsContent() {
             <div className="mb-5">
               <label className="label">Project name</label>
               <input className="input" placeholder="e.g. ISO 9001 Compliance 2026"
-                value={name} onChange={e => setName(e.target.value)} />
+                value={name} onChange={e => setName(e.target.value)} disabled={creating} />
               {loadingSuggestions && (
                 <div className="mt-2 text-xs text-slate-ai flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full border-2 border-electric border-t-transparent animate-spin" />
                   AI is suggesting names…
                 </div>
               )}
-              {suggestions.length > 0 && !loadingSuggestions && (
+              {suggestions.length > 0 && !loadingSuggestions && !creating && (
                 <div className="mt-3">
                   <div className="text-[11px] text-slate-ai mb-2 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-electric" /> AI suggestions — click to use
@@ -207,11 +209,18 @@ function ProjectsContent() {
               )}
             </div>
 
+            {creating && creatingStatus && (
+              <div className="mb-4 flex items-center gap-3 text-sm text-electric-bright bg-electric/[0.06] border border-electric/15 rounded-lg px-4 py-3">
+                <span className="w-4 h-4 rounded-full border-2 border-electric border-t-transparent animate-spin flex-shrink-0" />
+                {creatingStatus}
+              </div>
+            )}
+
             {error && <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2 mb-4">{error}</div>}
 
             <div className="flex gap-3">
               <button onClick={() => { setShowModal(false); setFile(null); setName(''); setSuggestions([]); setError('') }}
-                className="btn-ghost flex-1">Cancel</button>
+                disabled={creating} className="btn-ghost flex-1">Cancel</button>
               <button onClick={createProject} disabled={!name || !file || creating} className="btn-primary flex-1">
                 {creating ? 'Creating…' : 'Create project'}
               </button>

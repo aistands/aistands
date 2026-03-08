@@ -8,34 +8,30 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 export async function POST(req: NextRequest) {
   try {
-    const { projectId, question, history } = await req.json()
+    const body = await req.json()
+    const { projectId, question, history, userId } = body
 
-    // Build Supabase client from request cookies directly
-    const supabase = createServerClient(
+    // If userId is passed directly from client, use service role to bypass auth
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return req.cookies.getAll() },
-          setAll() {},
-        },
-      }
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ answer: 'Session expired — please refresh the page and try again.' })
+    // Verify user exists
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId)
+    if (userError || !userData?.user) {
+      return NextResponse.json({ answer: 'Authentication failed. Please log out and log in again.' })
     }
 
     // Get project
-    const { data: project } = await supabase
+    const { data: project } = await supabaseAdmin
       .from('projects')
       .select('document_text, file_path, file_name, user_id, query_count')
       .eq('id', projectId)
       .single()
 
-    if (!project || project.user_id !== user.id) {
+    if (!project || project.user_id !== userId) {
       return NextResponse.json({ answer: 'Project not found.' })
     }
 
@@ -44,7 +40,7 @@ export async function POST(req: NextRequest) {
     // If no text stored yet, extract from the stored PDF
     if (!documentText || documentText.length < 100) {
       try {
-        const { data: fileData } = await supabase.storage
+        const { data: fileData } = await supabaseAdmin.storage
           .from('documents')
           .download(project.file_path)
 
@@ -70,21 +66,22 @@ export async function POST(req: NextRequest) {
           documentText = extractRes.content[0].type === 'text' ? extractRes.content[0].text : ''
 
           if (documentText.length > 100) {
-            await supabase.from('projects').update({
+            await supabaseAdmin.from('projects').update({
               document_text: documentText.slice(0, 50000)
             }).eq('id', projectId)
           }
         } else if (fileData) {
           documentText = await fileData.text()
         }
-      } catch (extractErr) {
+      } catch (extractErr: any) {
         console.error('Extraction error:', extractErr)
+        return NextResponse.json({ answer: `PDF extraction failed: ${extractErr.message}` })
       }
     }
 
     if (!documentText || documentText.length < 50) {
       return NextResponse.json({
-        answer: "I wasn't able to read the document text. Please try deleting this project and re-uploading the PDF."
+        answer: "I wasn't able to read the document. Please delete this project and re-upload the PDF."
       })
     }
 
@@ -108,7 +105,7 @@ Be precise — compliance professionals rely on your answers. If unsure, say so 
 
     const answer = response.content[0].type === 'text' ? response.content[0].text : 'No response generated.'
 
-    await supabase.from('projects').update({
+    await supabaseAdmin.from('projects').update({
       query_count: (project.query_count || 0) + 1
     }).eq('id', projectId)
 

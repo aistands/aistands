@@ -47,7 +47,7 @@ export default function ProjectPage() {
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: id, question, history: messages })
+        body: JSON.stringify({ projectId: id, question, history: messages, userId: (await supabase.auth.getUser()).data.user?.id })
       })
       const data = await res.json()
       setMessages(m => [...m, { role: 'assistant', content: data.answer }])

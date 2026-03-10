@@ -17,17 +17,31 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(false)
   const [useWebSearch, setUseWebSearch] = useState(false)
   const [userId, setUserId] = useState<string>('')
+  const [userPlan, setUserPlan] = useState<string>('explorer')
   const [workbookEntries, setWorkbookEntries] = useState<any[]>([])
   const [checklist, setChecklist] = useState<any[]>([])
   const [generatingChecklist, setGeneratingChecklist] = useState(false)
   const [generatingWorkbook, setGeneratingWorkbook] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  const isPaidPlan = userPlan !== 'explorer'
+
   useEffect(() => {
     loadProject()
     loadWorkbook()
     loadChecklist()
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id || ''))
+    loadConversation()
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (data.user) {
+        setUserId(data.user.id)
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('plan')
+          .eq('id', data.user.id)
+          .single()
+        setUserPlan(profile?.plan || 'explorer')
+      }
+    })
   }, [id])
 
   useEffect(() => {
@@ -37,6 +51,21 @@ export default function ProjectPage() {
   async function loadProject() {
     const { data } = await supabase.from('projects').select('*').eq('id', id).single()
     setProject(data)
+  }
+  async function loadConversation() {
+    const { data } = await supabase
+      .from('query_history')
+      .select('*')
+      .eq('project_id', id)
+      .order('created_at', { ascending: true })
+      .limit(50)
+    if (data && data.length > 0) {
+      const loaded: Message[] = data.flatMap((row: any) => [
+        { role: 'user' as const, content: row.question },
+        { role: 'assistant' as const, content: row.answer, webSearch: row.web_search_used }
+      ])
+      setMessages(loaded)
+    }
   }
   async function loadWorkbook() {
     const { data } = await supabase.from('workbook_entries').select('*').eq('project_id', id).order('created_at')
@@ -57,12 +86,31 @@ export default function ProjectPage() {
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: id, question, history: messages, userId, useWebSearch })
+        body: JSON.stringify({
+          projectId: id,
+          question,
+          history: messages,
+          userId,
+          useWebSearch: useWebSearch && isPaidPlan && !!project?.document_text
+        })
       })
       const data = await res.json()
       setMessages(m => [...m, { role: 'assistant', content: data.answer, webSearch: data.webSearchUsed }])
 
-      // If document text wasn't cached, save it now in a separate call
+      // Save conversation to Supabase — get fresh user ID to avoid timing issues
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (currentUser) {
+        const { error: historyError } = await supabase.from('query_history').insert({
+          project_id: id,
+          user_id: currentUser.id,
+          question,
+          answer: data.answer,
+          web_search_used: data.webSearchUsed || false,
+          created_at: new Date().toISOString()
+        })
+        if (historyError) console.error('History save error:', historyError.message)
+      }
+
       if (data.needsTextSave) {
         fetch('/api/save-document-text', {
           method: 'POST',
@@ -168,7 +216,7 @@ export default function ProjectPage() {
                   <div className="text-4xl">🤖</div>
                   <div>
                     <div className="font-display font-bold text-xl mb-2">Ask anything about {project.name}</div>
-                    <p className="text-sm text-slate-ai max-w-sm">Ask questions in plain English. AIstands answers from your document — optionally enhanced with web sources.</p>
+                    <p className="text-sm text-slate-ai max-w-sm">Ask questions in plain English. AIstands answers from your document{isPaidPlan ? ' — optionally enhanced with web sources' : ''}.</p>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-center max-w-lg">
                     {["What are the main requirements?","Which clauses are mandatory?","What evidence do I need?","Summarise clause 7","How do auditors assess this?"].map(q => (
@@ -207,7 +255,7 @@ export default function ProjectPage() {
                 <div className="flex gap-4">
                   <div className="w-8 h-8 rounded-lg bg-electric/15 border border-electric/20 flex items-center justify-center text-sm flex-shrink-0">🤖</div>
                   <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl rounded-tl-sm px-5 py-3.5 flex items-center gap-2">
-                    {useWebSearch && <span className="text-xs text-emerald-400/70 mr-1">🌐 Searching web…</span>}
+                    {useWebSearch && isPaidPlan && <span className="text-xs text-emerald-400/70 mr-1">🌐 Searching web…</span>}
                     <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'0ms'}} />
                     <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'150ms'}} />
                     <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'300ms'}} />
@@ -217,28 +265,44 @@ export default function ProjectPage() {
               <div ref={bottomRef} />
             </div>
 
-            {/* Input area with web search toggle */}
+            {/* Input area */}
             <div className="p-6 border-t border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
-              {/* Web search toggle */}
-              <div className="flex items-center gap-3 mb-3">
-                <button
-                  onClick={() => setUseWebSearch(!useWebSearch)}
-                  className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all
-                    ${useWebSearch
-                      ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400'
-                      : 'bg-white/[0.04] border-white/10 text-slate-ai hover:border-white/20 hover:text-white'
-                    }`}
-                >
-                  <span>🌐</span>
-                  <span>{useWebSearch ? 'Web search ON' : 'Web search OFF'}</span>
-                  <span className={`w-7 h-4 rounded-full transition-all relative ${useWebSearch ? 'bg-emerald-400' : 'bg-white/20'}`}>
-                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${useWebSearch ? 'left-3.5' : 'left-0.5'}`} />
+
+              {/* Web search toggle — paid plans only */}
+              {isPaidPlan ? (
+                <div className="flex items-center gap-3 mb-3">
+                  <button
+                    onClick={() => setUseWebSearch(!useWebSearch)}
+                    className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all
+                      ${useWebSearch
+                        ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400'
+                        : 'bg-white/[0.04] border-white/10 text-slate-ai hover:border-white/20 hover:text-white'
+                      }`}
+                  >
+                    <span>🌐</span>
+                    <span>{useWebSearch ? 'Web search ON' : 'Web search OFF'}</span>
+                    <span className={`w-7 h-4 rounded-full transition-all relative ${useWebSearch ? 'bg-emerald-400' : 'bg-white/20'}`}>
+                      <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${useWebSearch ? 'left-3.5' : 'left-0.5'}`} />
+                    </span>
+                  </button>
+                  <span className="text-xs text-slate-ai">
+                    {useWebSearch ? 'Answers combine your document + live web sources' : 'Answers from your document only'}
                   </span>
-                </button>
-                <span className="text-xs text-slate-ai">
-                  {useWebSearch ? 'Answers combine your document + live web sources' : 'Answers from your document only'}
-                </span>
-              </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-white/10 text-slate-ai/50 cursor-not-allowed">
+                    <span>🌐</span>
+                    <span>Web search</span>
+                    <span className="w-7 h-4 rounded-full bg-white/10 relative">
+                      <span className="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white/30" />
+                    </span>
+                  </div>
+                  <Link href="/dashboard/settings" className="text-xs text-electric-bright hover:underline">
+                    Upgrade to Professional to enable web search →
+                  </Link>
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <input

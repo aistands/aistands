@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 
 export const maxDuration = 60
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +12,6 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // Get project
     const { data: project } = await supabase
       .from('projects')
       .select('document_text, file_path, file_name, user_id')
@@ -26,12 +22,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false })
     }
 
-    // Already has text — nothing to do
     if (project.document_text && project.document_text.length > 100) {
       return NextResponse.json({ success: true, alreadySaved: true })
     }
 
-    // Download and extract
     const { data: fileData, error: storageError } = await supabase.storage
       .from('documents')
       .download(project.file_path)
@@ -40,28 +34,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: storageError?.message })
     }
 
-    const bytes = await fileData.arrayBuffer()
-    const base64 = Buffer.from(bytes).toString('base64')
+    let extracted = ''
 
-    const extractRes = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'document',
-            source: { type: 'base64', media_type: 'application/pdf', data: base64 }
-          } as any,
-          {
-            type: 'text',
-            text: 'Extract all text from this document preserving all clause numbers, titles and requirements. Be thorough.'
-          }
-        ]
-      }]
-    })
-
-    const extracted = extractRes.content[0].type === 'text' ? extractRes.content[0].text : ''
+    if (project.file_name?.toLowerCase().endsWith('.pdf')) {
+      // Use pdf-parse to extract text without calling Claude
+      const pdfParse = (await import('pdf-parse')).default
+      const buffer = Buffer.from(await fileData.arrayBuffer())
+      const parsed = await pdfParse(buffer)
+      extracted = parsed.text || ''
+    } else {
+      extracted = await fileData.text()
+    }
 
     if (extracted.length > 100) {
       await supabase.from('projects').update({

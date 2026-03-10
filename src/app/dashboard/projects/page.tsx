@@ -66,7 +66,7 @@ function ProjectsContent() {
         name,
         file_path: filePath,
         file_name: file.name,
-        document_text: documentText.slice(0, 50000),
+        document_text: documentText,
         standard_name: name,
         query_count: 0,
         created_at: new Date().toISOString()
@@ -77,7 +77,7 @@ function ProjectsContent() {
       // Step 4 — If we got text, verify it saved by doing a quick update
       if (documentText.length > 100 && project) {
         const { error: updateError } = await supabase.from('projects')
-          .update({ document_text: documentText.slice(0, 50000) })
+          .update({ document_text: documentText })
           .eq('id', project.id)
         if (updateError) console.warn('Update failed:', updateError.message)
         else console.log('Document text saved successfully')

@@ -244,17 +244,20 @@ export default function ProjectPage() {
 
   async function generateChecklist() {
     setGeneratingChecklist(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const res = await fetch('/api/checklist/generate', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectId: id, userId: user?.id })
-    })
-    const data = await res.json()
-    if (data.items) {
-      const { data: inserted } = await supabase.from('checklist_items').insert(
-        data.items.map((i: any) => ({ ...i, project_id: id, id: undefined }))
-      ).select()
-      setChecklist(inserted || [])
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const res = await fetch('/api/checklist/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: id, userId: user?.id })
+      })
+      const data = await res.json()
+      if (data.items) {
+        setChecklist(data.items)
+      } else {
+        alert('Failed to generate checklist: ' + (data.error || 'Unknown error'))
+      }
+    } catch (e: any) {
+      alert('Error: ' + e.message)
     }
     setGeneratingChecklist(false)
   }
@@ -733,53 +736,140 @@ export default function ProjectPage() {
         {/* ── CHECKLIST TAB ── */}
         {tab === 'checklist' && (
           <div className="p-8">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="font-display font-bold text-xl tracking-tight">Compliance Checklist</h2>
+                <h2 className="font-display font-bold text-xl tracking-tight">Audit Readiness Checklist</h2>
                 <p className="text-sm text-slate-ai mt-1">
-                  {checklist.length > 0 ? `${checklist.filter(i=>i.completed).length} of ${checklist.length} complete` : 'Auto-generated from your standard'}
+                  {checklist.length > 0
+                    ? `${checklist.filter(i=>i.status==='green').length} green · ${checklist.filter(i=>i.status==='amber').length} amber · ${checklist.filter(i=>i.status==='red').length} red`
+                    : 'Generated once from your standard — free to load after that'}
                 </p>
               </div>
-              <button onClick={generateChecklist} disabled={generatingChecklist} className="btn-primary">
-                {generatingChecklist ? 'Generating…' : checklist.length ? 'Regenerate' : '✨ Generate checklist'}
-              </button>
-            </div>
-            {checklist.length > 0 && (
-              <div className="mb-6 h-2 bg-white/[0.07] rounded-full overflow-hidden">
-                <div className="h-full bg-electric rounded-full transition-all"
-                  style={{width:`${(checklist.filter(i=>i.completed).length/checklist.length)*100}%`}} />
-              </div>
-            )}
-            {checklist.length === 0 ? (
-              <div className="card rounded-2xl p-16 text-center">
-                <div className="text-4xl mb-4">✅</div>
-                <div className="font-display font-bold text-xl mb-3">No checklist yet</div>
-                <p className="text-sm text-slate-ai mb-6">Generate a checklist and AIstands will turn your standard into actionable items.</p>
+              {checklist.length === 0 && (
                 <button onClick={generateChecklist} disabled={generatingChecklist} className="btn-primary">
                   {generatingChecklist ? 'Generating…' : '✨ Generate checklist'}
                 </button>
+              )}
+              {checklist.length > 0 && (
+                <div className="flex items-center gap-2 text-xs text-slate-ai">
+                  <span>Generated once · updates save automatically</span>
+                </div>
+              )}
+            </div>
+
+            {/* RAG progress bar */}
+            {checklist.length > 0 && (
+              <div className="mb-6">
+                <div className="flex justify-between text-xs text-slate-ai mb-2">
+                  <span>{checklist.filter(i=>i.status==='green').length} ready · {checklist.filter(i=>i.status==='amber').length} in progress · {checklist.filter(i=>i.status==='red').length} not started</span>
+                  <span>{checklist.length} total items</span>
+                </div>
+                <div className="h-2 bg-white/[0.07] rounded-full overflow-hidden flex">
+                  <div className="h-full bg-emerald-400 transition-all" style={{width:`${(checklist.filter(i=>i.status==='green').length/checklist.length)*100}%`}} />
+                  <div className="h-full bg-amber-400 transition-all" style={{width:`${(checklist.filter(i=>i.status==='amber').length/checklist.length)*100}%`}} />
+                  <div className="h-full bg-red-400 transition-all" style={{width:`${(checklist.filter(i=>i.status==='red').length/checklist.length)*100}%`}} />
+                </div>
               </div>
-            ) : (
+            )}
+
+            {/* Empty state */}
+            {checklist.length === 0 && !generatingChecklist && (
+              <div className="card rounded-2xl p-16 text-center">
+                <div className="text-4xl mb-4">🎯</div>
+                <div className="font-display font-bold text-xl mb-3">Audit Readiness Checklist</div>
+                <p className="text-sm text-slate-ai mb-2 max-w-md mx-auto">AIstands will read your standard and generate a checklist of auditor questions — the kind an assessor would actually ask.</p>
+                <p className="text-xs text-slate-ai/60 mb-6 max-w-sm mx-auto">Generated once and saved permanently. You fill in responsible persons, evidence references, and RAG status as you prepare.</p>
+                <button onClick={generateChecklist} disabled={generatingChecklist} className="btn-primary">
+                  {generatingChecklist ? <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"/>Generating checklist…</span> : '✨ Generate audit checklist'}
+                </button>
+              </div>
+            )}
+
+            {generatingChecklist && (
+              <div className="card rounded-2xl p-16 text-center">
+                <div className="w-8 h-8 rounded-full border-2 border-electric border-t-transparent animate-spin mx-auto mb-4" />
+                <div className="font-display font-bold text-lg mb-2">Generating your audit checklist…</div>
+                <p className="text-sm text-slate-ai">AIstands is reading your standard and writing auditor questions. This takes about 30 seconds and only happens once.</p>
+              </div>
+            )}
+
+            {/* Checklist table */}
+            {checklist.length > 0 && (
               <div className="card rounded-2xl overflow-hidden">
+                {/* Header */}
+                <div className="grid gap-4 px-6 py-3 border-b border-white/[0.07] text-xs font-semibold text-slate-ai uppercase tracking-wider"
+                  style={{gridTemplateColumns:'70px 1fr 100px 160px 160px'}}>
+                  <span>Clause</span>
+                  <span>Auditor question</span>
+                  <span>Status</span>
+                  <span>Responsible</span>
+                  <span>Evidence ref</span>
+                </div>
                 {checklist.map((item, i) => (
                   <div key={item.id}
-                    className={`flex items-start gap-4 px-6 py-4 cursor-pointer hover:bg-white/[0.02] transition-colors ${i!==checklist.length-1?'border-b border-white/[0.07]':''}`}
-                    onClick={() => toggleCheck(item)}>
-                    <div className={`w-5 h-5 rounded-[5px] flex items-center justify-center text-[11px] flex-shrink-0 mt-0.5 transition-all
-                      ${item.completed ? 'bg-emerald-400/15 border border-emerald-400/30 text-emerald-400' : 'bg-white/[0.04] border border-white/10'}`}>
-                      {item.completed ? '✓' : ''}
+                    className={`grid gap-4 px-6 py-4 items-start transition-colors hover:bg-white/[0.02]
+                      ${i !== checklist.length - 1 ? 'border-b border-white/[0.07]' : ''}`}
+                    style={{gridTemplateColumns:'70px 1fr 100px 160px 160px'}}>
+
+                    {/* Clause */}
+                    <div className="pt-0.5">
+                      <span className="text-xs font-semibold bg-electric/10 text-electric-bright px-2 py-1 rounded border border-electric/15">
+                        {item.clause}
+                      </span>
                     </div>
-                    <div className="flex-1">
-                      <p className={`text-sm leading-relaxed ${item.completed ? 'line-through text-slate-ai' : 'text-[#aac4e0]'}`}>{item.requirement}</p>
-                      {item.clause && <p className="text-xs text-slate-ai mt-1">Clause {item.clause}</p>}
+
+                    {/* Audit question */}
+                    <div>
+                      <p className="text-xs text-slate-ai mb-1">{item.requirement}</p>
+                      <p className="text-sm text-white font-medium leading-snug">{item.audit_question}</p>
                     </div>
+
+                    {/* RAG status */}
+                    <div>
+                      <select
+                        value={item.status || 'red'}
+                        onChange={e => {
+                          const val = e.target.value
+                          setChecklist(c => c.map(x => x.id === item.id ? {...x, status: val} : x))
+                          supabase.from('checklist_items').update({ status: val }).eq('id', item.id)
+                        }}
+                        className={`text-xs px-2 py-1.5 rounded-lg border appearance-none cursor-pointer w-full font-semibold
+                          ${item.status === 'green' ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400' :
+                            item.status === 'amber' ? 'bg-amber-400/10 border-amber-400/30 text-amber-400' :
+                            'bg-red-400/10 border-red-400/30 text-red-400'}`}>
+                        <option value="red">🔴 Not ready</option>
+                        <option value="amber">🟡 In progress</option>
+                        <option value="green">🟢 Ready</option>
+                      </select>
+                    </div>
+
+                    {/* Responsible person */}
+                    <input
+                      className="input text-xs py-1.5"
+                      placeholder="Name / role…"
+                      defaultValue={item.responsible_person}
+                      onBlur={e => {
+                        supabase.from('checklist_items').update({ responsible_person: e.target.value }).eq('id', item.id)
+                        setChecklist(c => c.map(x => x.id === item.id ? {...x, responsible_person: e.target.value} : x))
+                      }}
+                    />
+
+                    {/* Evidence reference */}
+                    <input
+                      className="input text-xs py-1.5"
+                      placeholder="Doc ref, link…"
+                      defaultValue={item.evidence_ref}
+                      onBlur={e => {
+                        supabase.from('checklist_items').update({ evidence_ref: e.target.value }).eq('id', item.id)
+                        setChecklist(c => c.map(x => x.id === item.id ? {...x, evidence_ref: e.target.value} : x))
+                      }}
+                    />
                   </div>
                 ))}
               </div>
             )}
           </div>
         )}
-
         {/* ── VERSIONS TAB ── */}
         {tab === 'versions' && (
           <div className="p-8">

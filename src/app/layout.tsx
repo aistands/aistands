@@ -1,27 +1,30 @@
 import type { Metadata } from 'next'
-import '../styles/globals.css'
+import './globals.css'
+import { ThemeProvider } from '@/components/theme-provider'
 
 export const metadata: Metadata = {
-  title: 'AIstands — Your AI workspace for standards',
-  description: 'Upload your standards, ask questions in plain English, build compliance workbooks, track version changes, and generate checklists — all in one intelligent workspace.',
-  keywords: 'standards, compliance, ISO, AI, workbook, checklist, regulations',
-  openGraph: {
-    title: 'AIstands — Your AI workspace for standards',
-    description: 'The AI workspace built for standards professionals.',
-    url: 'https://aistands.com',
-    siteName: 'AIstands',
-    type: 'website',
-  },
+  title: 'standards.online — AI compliance workspace',
+  description: 'The smarter way to work with standards. Query, analyse and build audit-ready workbooks from your own documents.',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Prevent flash of wrong theme */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          try {
+            const t = localStorage.getItem('so-theme');
+            const p = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (t === 'dark' || (!t && p)) document.documentElement.classList.add('dark');
+          } catch(e){}
+        `}} />
+      </head>
+      <body>
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

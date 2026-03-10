@@ -3,13 +3,13 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
-import { Logo } from '@/components/ui/Logo'
+import { ThemeToggle } from '@/components/theme-provider'
 
 const NAV = [
-  { href:'/dashboard',           icon:'🏠', label:'Overview' },
-  { href:'/dashboard/projects',  icon:'📁', label:'Projects' },
-  { href:'/dashboard/library',   icon:'📚', label:'Standards Library' },
-  { href:'/dashboard/settings',  icon:'⚙️', label:'Settings' },
+  { href: '/dashboard',          icon: '🏠', label: 'Overview' },
+  { href: '/dashboard/projects', icon: '📁', label: 'Projects' },
+  { href: '/dashboard/library',  icon: '📚', label: 'Standards Library' },
+  { href: '/dashboard/settings', icon: '⚙️', label: 'Settings' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -18,11 +18,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const supabase = createClient()
   const [user, setUser] = useState<any>(null)
   const [plan, setPlan] = useState('Explorer')
+  const [queryCount, setQueryCount] = useState(0)
+  const queryLimit = plan === 'Explorer' ? 5 : plan === 'Professional' ? 100 : 9999
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) router.push('/auth/login')
-      else setUser(data.user)
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) { router.push('/auth/login'); return }
+      setUser(data.user)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('plan, query_count')
+        .eq('id', data.user.id)
+        .single()
+      if (profile) {
+        setPlan(profile.plan || 'Explorer')
+        setQueryCount(profile.query_count || 0)
+      }
     })
   }, [])
 
@@ -31,59 +42,78 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/')
   }
 
+  const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1)
+  const usedPct = Math.min((queryCount / queryLimit) * 100, 100)
+
   return (
-    <div className="min-h-screen flex" style={{background:'#0B1E3E'}}>
+    <div className="min-h-screen flex" style={{ background: 'var(--bg)' }}>
+
       {/* Sidebar */}
-      <aside className="w-[240px] flex-shrink-0 flex flex-col border-r border-white/[0.07]" style={{background:'#0e2245'}}>
-        <div className="p-6 border-b border-white/[0.07]">
-          <Logo size="sm" />
+      <aside className="sidebar w-[228px] flex-shrink-0 flex flex-col">
+        <div className="p-5 pb-4" style={{ borderBottom: '1px solid var(--sb-border)' }}>
+          <a href="/dashboard" className="logo-mark sm sidebar">
+            <span className="lw">standards</span>
+            <span className="ld">.</span>
+            <span className="lt">online</span>
+          </a>
         </div>
 
-        <nav className="flex-1 p-4 flex flex-col gap-1">
+        <nav className="flex-1 p-3 flex flex-col gap-0.5">
           {NAV.map(({ href, icon, label }) => {
             const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
             return (
               <Link key={href} href={href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
-                  ${active
-                    ? 'bg-electric/10 text-electric-bright border border-electric/15'
-                    : 'text-slate-ai hover:bg-white/[0.04] hover:text-white'
-                  }`}
-              >
-                <span className="text-base">{icon}</span>
+                className={`sb-nav-item ${active ? 'active' : ''}`}>
+                <span style={{ fontSize: '15px', width: '18px', textAlign: 'center' }}>{icon}</span>
                 {label}
               </Link>
             )
           })}
         </nav>
 
-        {/* Plan badge + upgrade */}
-        <div className="p-4 border-t border-white/[0.07]">
-          <div className="card rounded-xl p-3.5 mb-3">
+        {/* Plan box + sign out */}
+        <div className="p-3" style={{ borderTop: '1px solid var(--sb-border)' }}>
+          <div className="rounded-xl p-3 mb-2" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-slate-ai font-medium">Current plan</span>
-              <span className="badge badge-blue text-[10px]">{plan}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'Epilogue, sans-serif' }}>Plan</span>
+              <span className="badge badge-orange" style={{ fontSize: '9px' }}>{planLabel}</span>
             </div>
             {plan === 'Explorer' && (
               <>
-                <div className="text-[11px] text-slate-ai mb-2">5 queries used / 5</div>
-                <div className="h-1.5 bg-white/[0.07] rounded-full overflow-hidden">
-                  <div className="h-full bg-electric rounded-full" style={{width:'100%'}} />
+                <div className="text-[11px] mb-1.5" style={{ color: 'rgba(255,255,255,0.3)' }}>{queryCount} of {queryLimit} queries used</div>
+                <div className="h-[3px] rounded-full mb-2.5 overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <div className="h-full rounded-full" style={{ width: `${usedPct}%`, background: 'var(--orange)' }} />
                 </div>
-                <Link href="/pricing" className="mt-3 btn-primary text-xs py-2 w-full text-center block">Upgrade plan</Link>
               </>
             )}
+            <Link href="/pricing"
+              className="block w-full text-center text-xs font-semibold py-2 rounded-lg"
+              style={{ background: 'var(--orange)', color: '#fff' }}>
+              Upgrade plan
+            </Link>
           </div>
-          <button onClick={signOut} className="w-full text-left text-xs text-slate-ai hover:text-white px-3 py-2 rounded-lg hover:bg-white/[0.04] transition-colors flex items-center gap-2">
+          <button onClick={signOut}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors"
+            style={{ color: 'rgba(255,255,255,0.25)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.55)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}>
             <span>↩</span> Sign out
           </button>
         </div>
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-auto">
-        {children}
+      <main className="flex-1 overflow-auto flex flex-col" style={{ minHeight: '100vh' }}>
+        {/* Top bar with theme toggle */}
+        <div className="flex items-center justify-end px-8 py-3 flex-shrink-0"
+          style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+          <ThemeToggle />
+        </div>
+        <div className="flex-1 overflow-auto">
+          {children}
+        </div>
       </main>
+
     </div>
   )
 }

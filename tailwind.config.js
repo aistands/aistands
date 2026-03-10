@@ -1,5 +1,6 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
+import type { Config } from 'tailwindcss'
+
+const config: Config = {
   darkMode: 'class',
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -8,25 +9,27 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['Epilogue', 'sans-serif'],
+        body: ['DM Sans', 'sans-serif'],
+      },
       colors: {
+        orange: {
+          DEFAULT: '#E8631A',
+          bright:  '#F57332',
+          deep:    '#C4510E',
+        },
         navy: {
           DEFAULT: '#0B1E3E',
-          mid: '#132952',
-          light: '#1C3A70',
+          mid:     '#132952',
         },
-        electric: {
-          DEFAULT: '#1E8AFF',
-          bright: '#4FA8FF',
-        },
-        slate: {
-          ai: '#8DA3C0',
-        }
       },
-      fontFamily: {
-        sans: ['DM Sans', 'sans-serif'],
-        display: ['Epilogue', 'sans-serif'],
+      letterSpacing: {
+        tight: '-0.03em',
+        tighter: '-0.04em',
       },
     },
   },
   plugins: [],
 }
+export default config

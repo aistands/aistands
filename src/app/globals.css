@@ -1,0 +1,286 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Epilogue:ital,wght@0,300;0,400;0,500;0,700;0,800;0,900;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+
+/* ─── LIGHT THEME (default) ─── */
+:root {
+  --orange:        #E8631A;
+  --orange-b:      #F57332;
+  --orange-deep:   #C4510E;
+  --orange-soft:   rgba(232,99,26,0.09);
+  --orange-border: rgba(232,99,26,0.18);
+
+  --navy:          #0B1E3E;
+  --navy-mid:      #132952;
+  --navy-soft:     rgba(11,30,62,0.05);
+  --navy-border:   rgba(11,30,62,0.10);
+
+  /* Light surface colours */
+  --bg:            #F5EDE3;
+  --surface:       #FFFAF6;
+  --surface-2:     #FDF4EC;
+  --surface-3:     #F5EDE3;
+  --border:        #EAE0D6;
+  --border-2:      #DDD3C7;
+
+  /* Text */
+  --text:          #1C1410;
+  --text-mid:      #5C4D43;
+  --text-muted:    #9C8C83;
+  --text-subtle:   #C2B5AC;
+
+  /* Sidebar */
+  --sb-bg:         #0B1E3E;
+  --sb-text:       rgba(255,255,255,0.4);
+  --sb-text-hover: rgba(255,255,255,0.75);
+  --sb-border:     rgba(255,255,255,0.06);
+  --sb-hover:      rgba(255,255,255,0.05);
+  --sb-active-bg:  rgba(232,99,26,0.09);
+  --sb-active-c:   #F57332;
+  --sb-active-br:  rgba(232,99,26,0.18);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 4px 10px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.07), 0 12px 40px rgba(0,0,0,0.05);
+}
+
+/* ─── DARK THEME ─── */
+.dark {
+  --bg:            #111008;
+  --surface:       #1A1714;
+  --surface-2:     #211E1A;
+  --surface-3:     #2A2520;
+  --border:        rgba(255,255,255,0.07);
+  --border-2:      rgba(255,255,255,0.12);
+
+  --text:          #F5EDE3;
+  --text-mid:      rgba(245,237,227,0.65);
+  --text-muted:    rgba(245,237,227,0.40);
+  --text-subtle:   rgba(245,237,227,0.22);
+
+  --navy-soft:     rgba(232,99,26,0.08);
+  --navy-border:   rgba(232,99,26,0.15);
+
+  --sb-bg:         #151210;
+  --sb-text:       rgba(255,255,255,0.35);
+  --sb-text-hover: rgba(255,255,255,0.7);
+  --sb-border:     rgba(255,255,255,0.06);
+  --sb-hover:      rgba(255,255,255,0.05);
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.2), 0 4px 10px rgba(0,0,0,0.15);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.25), 0 12px 40px rgba(0,0,0,0.2);
+}
+
+/* ─── BASE STYLES ─── */
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* ─── TYPOGRAPHY ─── */
+.font-display { font-family: 'Epilogue', sans-serif; }
+
+/* ─── LOGO ─── */
+.logo-mark {
+  font-family: 'Epilogue', sans-serif;
+  font-size: 21px;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: baseline;
+}
+.logo-mark .lw  { font-weight: 800; color: var(--text); }
+.logo-mark .ld  { font-weight: 800; color: var(--orange); }
+.logo-mark .lt  { font-weight: 300; color: var(--text); }
+.logo-mark.sm   { font-size: 18px; }
+.logo-mark.lg   { font-size: 28px; }
+/* Sidebar logo always shows light version */
+.logo-mark.sidebar .lw { color: #fff; }
+.logo-mark.sidebar .ld { color: var(--orange-b); }
+.logo-mark.sidebar .lt { color: rgba(255,255,255,0.45); }
+
+/* ─── FORM ELEMENTS ─── */
+.input {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.input:focus { border-color: var(--orange); }
+.input::placeholder { color: var(--text-subtle); }
+
+.label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-family: 'Epilogue', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+/* ─── BUTTONS ─── */
+.btn-primary {
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: var(--orange-b); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-mid);
+  border: 1px solid var(--border);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-ghost:hover { border-color: var(--border-2); color: var(--text); }
+.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─── CARDS ─── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: background 0.2s, border-color 0.15s;
+}
+.card:hover { border-color: var(--border-2); }
+
+/* ─── BADGES ─── */
+.badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: 'Epilogue', sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.badge-orange {
+  background: var(--orange-soft);
+  border: 1px solid var(--orange-border);
+  color: var(--orange-b);
+}
+.badge-navy {
+  background: var(--navy-soft);
+  border: 1px solid var(--navy-border);
+  color: var(--navy);
+}
+.dark .badge-navy { color: var(--orange-b); }
+
+.badge-green {
+  background: rgba(21,128,61,0.07);
+  border: 1px solid rgba(21,128,61,0.18);
+  color: #15803d;
+}
+.dark .badge-green { color: #4ade80; background: rgba(74,222,128,0.08); border-color: rgba(74,222,128,0.2); }
+
+.badge-amber {
+  background: rgba(180,83,9,0.07);
+  border: 1px solid rgba(180,83,9,0.18);
+  color: #b45309;
+}
+.dark .badge-amber { color: #fbbf24; background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.2); }
+
+/* ─── STATUS PILLS ─── */
+.status-green { color: #15803d; border-color: rgba(21,128,61,0.2); background: rgba(21,128,61,0.06); }
+.status-amber { color: #b45309; border-color: rgba(180,83,9,0.2); background: rgba(180,83,9,0.06); }
+.status-red   { color: #b91c1c; border-color: rgba(185,28,28,0.2); background: rgba(185,28,28,0.06); }
+.dark .status-green { color: #4ade80; border-color: rgba(74,222,128,0.2); background: rgba(74,222,128,0.07); }
+.dark .status-amber { color: #fbbf24; border-color: rgba(251,191,36,0.2); background: rgba(251,191,36,0.07); }
+.dark .status-red   { color: #f87171; border-color: rgba(248,113,113,0.2); background: rgba(248,113,113,0.07); }
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  background: var(--sb-bg);
+  border-right: 1px solid var(--sb-border);
+  transition: background 0.2s;
+}
+.sb-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sb-text);
+  cursor: pointer;
+  text-decoration: none;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+.sb-nav-item:hover {
+  color: var(--sb-text-hover);
+  background: var(--sb-hover);
+}
+.sb-nav-item.active {
+  background: var(--sb-active-bg);
+  color: var(--sb-active-c);
+  border-color: var(--sb-active-br);
+}
+
+/* ─── THEME TOGGLE ─── */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover {
+  border-color: var(--orange-border);
+  color: var(--orange);
+  background: var(--orange-soft);
+}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-subtle); }
+
+/* ─── TRANSITIONS ─── */
+.card, .input, .btn-ghost, .sidebar, .theme-toggle {
+  transition-property: background, border-color, color;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}

@@ -49,18 +49,18 @@ Return ONLY a valid JSON array. Each item must have:
 - title: the clause title
 - requirement: the full requirement text, word for word from the document
 
-Return at least 30 entries. No preamble, no markdown fences, just the JSON array.`
+Cover EVERY clause and sub-clause in the entire document without exception — including all annexes and normative sections. Do not stop early. No preamble, no markdown fences, just the JSON array.`
 
     const messageContent: any[] = pdfBase64
       ? [
           { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
           { type: 'text', text: prompt }
         ]
-      : [{ type: 'text', text: `Document:\n\n${documentText.slice(0, 40000)}\n\n${prompt}` }]
+      : [{ type: 'text', text: `Document:\n\n${documentText.slice(0, 150000)}\n\n${prompt}` }]
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
+      max_tokens: 6000,
       messages: [{ role: 'user', content: messageContent }]
     })
 

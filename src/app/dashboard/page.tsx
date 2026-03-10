@@ -38,7 +38,7 @@ export default function DashboardPage() {
         {[
           { href:'/dashboard/projects?new=1', icon:'➕', label:'New project', color:'bg-electric/10 border-electric/20 hover:bg-electric/15' },
           { href:'/dashboard/projects',        icon:'📁', label:'My projects', color:'card hover:border-electric/20' },
-          { href:'/dashboard/workbook',         icon:'🗒',  label:'Workbooks',   color:'card hover:border-electric/20' },
+          { href:'/dashboard/projects',          icon:'🗒',  label:'Workbooks',   color:'card hover:border-electric/20' },
           { href:'/dashboard/library',          icon:'📚', label:'Standards library', color:'card hover:border-electric/20' },
         ].map(({ href, icon, label, color }) => (
           <Link key={label} href={href} className={`${color} border rounded-xl p-5 flex flex-col gap-3 transition-all group`}>

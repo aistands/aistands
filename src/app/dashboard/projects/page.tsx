@@ -24,14 +24,15 @@ function ProjectsContent() {
   }, [])
 
   async function loadProjects() {
+    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false })
+    setProjects(data || [])
+  }
+
   async function loadLibraryStandard(id: string) {
-    const { data } = await supabase.from("standards_library").select("*").eq("id", id).single()
+    const { data } = await supabase.from('standards_library').select('*').eq('id', id).single()
     if (data) {
       setName(data.title)
     }
-  }
-    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false })
-    setProjects(data || [])
   }
 
   async function handleFileSelect(f: File) {

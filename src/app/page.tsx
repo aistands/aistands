@@ -1,374 +1,204 @@
-import { Navbar } from '@/components/layout/Navbar'
-import { Logo } from '@/components/ui/Logo'
+'use client'
 import Link from 'next/link'
+import { ThemeToggle } from '@/components/theme-provider'
 
 export default function HomePage() {
   return (
-    <>
-      <Navbar />
-      <main>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh', color: 'var(--text)', fontFamily: 'DM Sans, sans-serif' }}>
 
-        {/* ── HERO ── */}
-        <section className="min-h-screen flex flex-col items-center justify-center text-center px-12 pt-32 pb-20 relative overflow-hidden">
-          {/* Grid bg */}
-          <div className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: 'linear-gradient(rgba(30,138,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(30,138,255,0.04) 1px, transparent 1px)',
-              backgroundSize: '48px 48px',
-              maskImage: 'radial-gradient(ellipse 80% 60% at 50% 50%, black 30%, transparent 100%)',
-            }}
-          />
-          {/* Glow orbs */}
-          <div className="absolute pointer-events-none" style={{ width:600,height:600,borderRadius:'50%',background:'radial-gradient(circle, rgba(30,138,255,0.12) 0%, transparent 70%)',top:-100,left:'50%',transform:'translateX(-50%)' }} />
+      {/* NAV */}
+      <nav style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 48px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <a href="/" className="logo-mark" style={{ fontSize: '21px' }}>
+            <span className="lw">standards</span>
+            <span className="ld">.</span>
+            <span className="lt">online</span>
+          </a>
+          <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
+            <a href="#features" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '14px' }}>Features</a>
+            <a href="#pricing" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '14px' }}>Pricing</a>
+            <a href="#about" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '14px' }}>About</a>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <ThemeToggle />
+            <Link href="/auth/login" className="btn-ghost">Sign in</Link>
+            <Link href="/auth/signup" className="btn-primary">Start free</Link>
+          </div>
+        </div>
+      </nav>
 
-          <div className="badge badge-blue mb-8 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-electric shadow-[0_0_6px_#1E8AFF] animate-pulse" />
-            Powered by Claude AI
+      {/* HERO */}
+      <section style={{ maxWidth: '1200px', margin: '0 auto', padding: '90px 48px 80px', display: 'grid', gridTemplateColumns: '1fr 460px', gap: '72px', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+        {/* bg glow */}
+        <div style={{ position: 'absolute', top: '-100px', right: '-80px', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(232,99,26,0.08) 0%, transparent 65%)', pointerEvents: 'none' }} />
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontFamily: 'Epilogue, sans-serif', fontSize: '11px', fontWeight: 700, color: 'var(--orange)', letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: '22px' }}>
+            <span style={{ width: '5px', height: '5px', background: 'var(--orange)', borderRadius: '50%' }} />
+            AI compliance workspace
           </div>
 
-          <h1 className="font-display font-black text-[clamp(42px,6vw,76px)] leading-[1.04] tracking-[-0.03em] max-w-4xl mb-6" style={{letterSpacing:'-0.03em'}}>
-            The AI workspace built for{' '}
-            <em className="not-italic text-electric">standards professionals</em>
+          <h1 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '54px', lineHeight: 1.06, letterSpacing: '-0.03em', color: 'var(--text)', marginBottom: '22px' }}>
+            The smarter way<br />
+            to work with{' '}
+            <em style={{ fontStyle: 'italic', fontWeight: 300, color: 'var(--orange)' }}>standards</em>
           </h1>
 
-          <p className="text-[clamp(16px,2vw,19px)] font-light text-[#aac4e0] max-w-xl leading-relaxed mb-10">
-            Upload your standards, ask questions in plain English, build compliance workbooks, track version changes, and generate checklists — all in one intelligent workspace.
+          <p style={{ fontSize: '16px', color: 'var(--text-mid)', lineHeight: 1.7, maxWidth: '440px', marginBottom: '12px', fontWeight: 300 }}>
+            Upload your licensed documents. Query them with AI. Build audit-ready workbooks. Everything compliance professionals need — in one place.
           </p>
 
-          <div className="flex gap-3 justify-center flex-wrap mb-16">
-            <Link href="/auth/signup" className="btn-primary text-base px-8 py-3.5">
-              Start for free →
-            </Link>
-            <a href="#how" className="btn-ghost text-base px-8 py-3.5">
-              See how it works
-            </a>
-          </div>
-
-          {/* App preview */}
-          <div className="w-full max-w-4xl">
-            <div className="rounded-2xl overflow-hidden border border-white/[0.07]" style={{background:'#132952',boxShadow:'0 40px 80px rgba(0,0,0,0.4), 0 0 80px rgba(30,138,255,0.06)'}}>
-              <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.07]" style={{background:'rgba(11,30,62,0.6)'}}>
-                <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
-                <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
-                <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
-              </div>
-              <div className="grid" style={{gridTemplateColumns:'220px 1fr',minHeight:320}}>
-                <div className="border-r border-white/[0.07] p-5">
-                  <div className="text-[10px] tracking-widest uppercase text-slate-ai mb-3 px-2">Projects</div>
-                  {['ISO 9001 — QMS','ISO 45001 — OHS','CE Marking'].map((p,i) => (
-                    <div key={p} className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm mb-1 ${i===0 ? 'bg-electric/10 text-electric-bright' : 'text-slate-ai'}`}>
-                      <span>{i===0?'📋':'📁'}</span>{p}
-                    </div>
-                  ))}
-                  <div className="h-px bg-white/[0.06] my-3" />
-                  <div className="text-[10px] tracking-widest uppercase text-slate-ai mb-3 px-2">Tools</div>
-                  {['🗒 Workbook','✅ Checklists','🔔 Version tracker'].map(t => (
-                    <div key={t} className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-slate-ai mb-1">{t}</div>
-                  ))}
-                </div>
-                <div className="p-6 flex flex-col gap-4">
-                  <div className="font-display font-black text-base tracking-tight">ISO 9001:2015 — AI Query</div>
-                  <div className="flex items-center gap-3 rounded-lg p-3.5 border border-white/[0.07]" style={{background:'rgba(255,255,255,0.03)'}}>
-                    <span className="text-sm text-slate-ai italic flex-1">"What does clause 7.2 require us to demonstrate for competence?"</span>
-                    <button className="bg-electric text-white text-xs font-semibold px-3 py-1.5 rounded-md">Ask AI</button>
-                  </div>
-                  <div className="rounded-lg p-4 border border-electric/15" style={{background:'rgba(30,138,255,0.06)'}}>
-                    <div className="flex items-center gap-2 text-[10px] tracking-widest uppercase text-electric-bright mb-3">
-                      <span className="w-1.5 h-1.5 rounded-full bg-electric shadow-[0_0_6px_#1E8AFF]" />
-                      AIstands response · Clause 7.2
-                    </div>
-                    <p className="text-sm text-[#aac4e0] leading-relaxed">Clause 7.2 requires your organisation to determine the necessary competence of persons doing work under its control, ensure they are competent, and retain documented evidence.</p>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {[['✓','Competence requirements defined for each role',true],['✓','Training records maintained and accessible',true],['','Gap analysis against current workforce competence',false]].map(([icon,text,done],i) => (
-                      <div key={i} className="flex items-center gap-2.5 text-sm">
-                        <div className={`w-4 h-4 rounded flex items-center justify-center text-[9px] flex-shrink-0 ${done ? 'bg-emerald-400/15 border border-emerald-400/30 text-emerald-400' : 'bg-white/[0.04] border border-white/10'}`}>{icon}</div>
-                        <span className={done ? 'text-[#aac4e0]' : 'text-slate-ai'}>{text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── STANDARDS BAR ── */}
-        <div className="py-7 px-12 border-t border-b border-white/[0.07]">
-          <p className="text-center text-[11px] tracking-[0.12em] uppercase text-slate-ai mb-5">Works with the standards you already use</p>
-          <div className="flex gap-8 justify-center flex-wrap">
-            {['ISO 9001','ISO 14001','ISO 45001','ISO 27001','CE Marking','FDA 21 CFR','REACH','EN Standards','BS Standards','IATF 16949'].map(s => (
-              <span key={s} className="font-display font-bold text-sm text-[rgba(141,163,192,0.45)] tracking-wide hover:text-electric-bright transition-colors cursor-default">{s}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '34px', fontSize: '12px', color: 'var(--text-muted)' }}>
+            A fraction of the cost of
+            {['BSOL', 'Accuris', 'ASTM Compass'].map(s => (
+              <span key={s} style={{ background: 'var(--navy-soft)', border: '1px solid var(--navy-border)', color: 'var(--navy)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, fontFamily: 'Epilogue, sans-serif' }}>{s}</span>
             ))}
           </div>
+
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px' }}>
+            <Link href="/auth/signup" className="btn-primary" style={{ fontSize: '15px', padding: '15px 32px', borderRadius: '10px' }}>Start free trial →</Link>
+            <a href="#pricing" className="btn-ghost" style={{ fontSize: '15px', padding: '15px 26px', borderRadius: '10px' }}>See pricing</a>
+          </div>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ color: 'var(--orange)', fontWeight: 700 }}>✓</span> No credit card required · Cancel anytime
+          </p>
         </div>
 
-        {/* ── PROBLEM ── */}
-        <section className="py-28 px-12 max-w-[1100px] mx-auto">
-          <div className="text-[11px] font-semibold tracking-[0.18em] uppercase text-electric mb-5">The problem</div>
-          <h2 className="font-display font-black text-[clamp(32px,4vw,52px)] tracking-[-0.03em] leading-[1.08] mb-6">Standards work is slow,<br/>complex, and expensive.</h2>
-          <p className="text-lg font-light text-[#aac4e0] leading-relaxed max-w-xl mb-16">Compliance teams spend hours manually reading documents, cross-referencing clauses, and rebuilding the same checklists. AIstands changes that.</p>
-          <div className="grid grid-cols-3 gap-5">
-            {[
-              ['⏱','Hours of manual reading','Finding a specific requirement in a 60-page standard means reading the whole document. AIstands answers in seconds.'],
-              ['🔄','Version changes go unnoticed','New standard versions can introduce critical requirement changes. Without tracking, your compliance work becomes outdated.'],
-              ['💸','Consultants are expensive','Hiring consultants to interpret standards costs thousands. AIstands gives you the same intelligence at a fraction of the cost.'],
-            ].map(([icon,title,desc]) => (
-              <div key={title as string} className="card p-7 hover:border-electric/25 hover:bg-electric/[0.04] transition-all">
-                <div className="text-3xl mb-4">{icon}</div>
-                <div className="font-display font-black text-base mb-2.5">{title}</div>
-                <div className="text-sm text-[#aac4e0] leading-relaxed">{desc}</div>
+        {/* Hero right — chat card */}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          {/* Float top */}
+          <div style={{ position: 'absolute', top: '-20px', right: '-24px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '11px 14px', boxShadow: 'var(--shadow-md)', display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap', zIndex: 2 }}>
+            <div style={{ width: '28px', height: '28px', background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.15)', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px' }}>✅</div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Clause 8.1 — Compliant</div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '1px' }}>ISO 9001:2015</div>
+            </div>
+          </div>
+
+          {/* Chat card */}
+          <div className="card" style={{ borderRadius: '16px', overflow: 'hidden', boxShadow: 'var(--shadow-md)' }}>
+            <div style={{ background: 'var(--navy)', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontFamily: 'Epilogue, sans-serif', fontSize: '13px', fontWeight: 700, color: 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📄 ANSI/AAMI CN27:2023
               </div>
-            ))}
+              <div style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', background: 'rgba(232,99,26,0.2)', border: '1px solid rgba(232,99,26,0.3)', color: '#F57332', fontFamily: 'Epilogue, sans-serif', letterSpacing: '0.04em', textTransform: 'uppercase' }}>AI Query</div>
+            </div>
+            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ background: 'var(--orange)', color: '#fff', fontSize: '12.5px', lineHeight: 1.55, padding: '10px 14px', borderRadius: '10px', borderBottomRightRadius: '3px', alignSelf: 'flex-end', maxWidth: '90%' }}>
+                What evidence does an auditor need for clause B.4?
+              </div>
+              <div style={{ background: 'var(--surface-2)', color: 'var(--text)', fontSize: '12.5px', lineHeight: 1.55, padding: '10px 14px', borderRadius: '10px', borderBottomLeftRadius: '3px', border: '1px solid var(--border)', alignSelf: 'flex-start', maxWidth: '90%' }}>
+                <div style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--orange)', marginBottom: '4px', fontFamily: 'Epilogue, sans-serif' }}>standards.online</div>
+                For clause B.4 auditors expect documented test procedures, calibration records, and signed-off reports with traceability to the device family.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', alignItems: 'center' }}>
+              <div style={{ flex: 1, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '9px 12px', fontSize: '12px', color: 'var(--text-subtle)', fontFamily: 'DM Sans, sans-serif' }}>Ask another question…</div>
+              <div style={{ width: '32px', height: '32px', background: 'var(--orange)', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', flexShrink: 0 }}>→</div>
+            </div>
           </div>
-        </section>
 
-        {/* ── FEATURES ── */}
-        <section id="features" className="pb-28 px-12 max-w-[1100px] mx-auto">
-          <div className="mb-16">
-            <div className="text-[11px] font-semibold tracking-[0.18em] uppercase text-electric mb-5">Features</div>
-            <h2 className="font-display font-black text-[clamp(32px,4vw,52px)] tracking-[-0.03em]">Everything you need to<br/>work with standards.</h2>
+          {/* Float bottom */}
+          <div style={{ position: 'absolute', bottom: '14px', left: '-36px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '11px 14px', boxShadow: 'var(--shadow-md)', display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap', zIndex: 2 }}>
+            <div style={{ width: '28px', height: '28px', background: 'var(--orange-soft)', border: '1px solid var(--orange-border)', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px' }}>🎯</div>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>Audit checklist ready</div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '1px' }}>47 items · 12 green</div>
+            </div>
           </div>
+        </div>
+      </section>
 
+      {/* FEATURES */}
+      <section id="features" style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
           {[
-            {
-              num:'01', title:'Ask any question about your standard',
-              desc:'Upload your licensed copy of any standard and ask questions in plain English. AIstands reads, understands, and explains — no clause hunting required.',
-              bullets:['Plain English explanations of complex requirements','Clause-level answers grounded in your document','Ask follow-up questions in natural conversation'],
-              visual: (
-                <div className="rounded-2xl overflow-hidden border border-white/[0.07]" style={{background:'#132952'}}>
-                  <div className="px-4 py-3 border-b border-white/[0.07] text-xs text-slate-ai font-medium flex items-center gap-2" style={{background:'rgba(11,30,62,0.5)'}}>🤖 AI Query — ISO 9001:2015</div>
-                  <div className="p-5 flex flex-col gap-3">
-                    <div className="flex items-center gap-3 rounded-lg p-3 border border-white/[0.07]" style={{background:'rgba(255,255,255,0.03)'}}>
-                      <span className="text-xs text-slate-ai italic flex-1">"What evidence do we need for an internal audit?"</span>
-                      <button className="bg-electric text-white text-[11px] font-semibold px-2.5 py-1 rounded">Ask</button>
-                    </div>
-                    <div className="rounded-lg p-3.5 border border-electric/15" style={{background:'rgba(30,138,255,0.06)'}}>
-                      <div className="text-[10px] tracking-widest uppercase text-electric-bright mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-electric" />AIstands · Clause 9.2</div>
-                      <p className="text-xs text-[#aac4e0] leading-relaxed">Clause 9.2.2(f) requires retaining documented information as evidence of the audit programme and results, including findings and corrective actions.</p>
-                    </div>
-                  </div>
-                </div>
-              )
-            },
-            {
-              num:'02', title:'Build structured compliance workbooks',
-              desc:'Extract the requirements that matter into organised, annotatable workbooks. Your own structured reference — built with AI, owned by you.',
-              bullets:['Extract and organise key requirements by clause','Add your own annotations and implementation notes','Export and share with your team'],
-              reverse: true,
-              visual: (
-                <div className="rounded-2xl overflow-hidden border border-white/[0.07]" style={{background:'#132952'}}>
-                  <div className="px-4 py-3 border-b border-white/[0.07] text-xs text-slate-ai font-medium flex items-center gap-2" style={{background:'rgba(11,30,62,0.5)'}}>🗒 Workbook — ISO 45001</div>
-                  <div className="p-5 flex flex-col gap-3">
-                    {[['8.1.1','Plan and control processes to meet OH&S requirements.','Review with ops team — assign owner'],['8.1.3','Assess risks before implementing operational changes.','Change control procedure needs updating'],['8.2','Emergency preparedness procedures must be tested.',null]].map(([clause,text,note]) => (
-                      <div key={clause as string} className="flex gap-3 p-3 rounded-lg border border-white/[0.07]" style={{background:'rgba(255,255,255,0.03)'}}>
-                        <span className="text-[11px] font-semibold bg-electric/10 text-electric-bright px-2 py-0.5 rounded h-fit whitespace-nowrap">{clause}</span>
-                        <div>
-                          <p className="text-xs text-[#aac4e0] leading-relaxed">{text}</p>
-                          {note && <p className="text-[11px] text-emerald-400/70 mt-1.5 flex items-center gap-1">✎ {note}</p>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            },
-            {
-              num:'03', title:'Generate compliance checklists instantly',
-              desc:'Turn any standard into a structured, actionable compliance checklist in seconds. Track progress, mark items complete, and close gaps faster.',
-              bullets:['Auto-generated from your uploaded standard','Track completion status across your team','Filter by clause, section, or priority'],
-              visual: (
-                <div className="rounded-2xl overflow-hidden border border-white/[0.07]" style={{background:'#132952'}}>
-                  <div className="px-4 py-3 border-b border-white/[0.07] text-xs text-slate-ai font-medium flex items-center gap-2" style={{background:'rgba(11,30,62,0.5)'}}>✅ Checklist — ISO 9001 Section 7</div>
-                  <div className="p-5 flex flex-col gap-0">
-                    {[[true,'Resources determined and provided (7.1)'],[true,'Competence requirements documented (7.2)'],[false,'Awareness of quality policy demonstrated (7.3)'],[false,'Communication plan established (7.4)'],[false,'Documented information controlled (7.5)']].map(([done,text],i) => (
-                      <div key={i} className="flex items-center gap-3 py-2.5 border-b border-white/[0.05] last:border-0">
-                        <div className={`w-[18px] h-[18px] rounded-[5px] flex items-center justify-center text-[10px] flex-shrink-0 ${done ? 'bg-emerald-400/15 border border-emerald-400/30 text-emerald-400' : 'bg-white/[0.04] border border-white/10'}`}>{done?'✓':''}</div>
-                        <span className="text-xs text-[#aac4e0]">{text as string}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            },
-            {
-              num:'04', title:'Track changes between standard versions',
-              desc:'When a new version is released, AIstands identifies exactly what changed, what\'s new, and what was removed — so nothing slips through.',
-              bullets:['Upload old and new versions to compare','AI flags new, changed, and removed requirements','Impact assessment for your existing workbooks'],
-              reverse: true,
-              visual: (
-                <div className="rounded-2xl overflow-hidden border border-white/[0.07]" style={{background:'#132952'}}>
-                  <div className="px-4 py-3 border-b border-white/[0.07] text-xs text-slate-ai font-medium flex items-center gap-2" style={{background:'rgba(11,30,62,0.5)'}}>🔔 Version Tracker — ISO 9001</div>
-                  <div className="p-5 flex flex-col gap-0">
-                    {[['new','Clause 4.1','Climate change considerations now required in context of the organisation.'],['changed','Clause 6.1','Risk and opportunity language strengthened with explicit treatment requirements.'],['removed','Clause 10.3','Preventive action as a standalone requirement has been removed.']].map(([type,clause,text]) => (
-                      <div key={clause as string} className="flex gap-3 py-3 border-b border-white/[0.05] last:border-0">
-                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded h-fit whitespace-nowrap badge ${type==='new'?'badge-success':type==='changed'?'badge-warning':'bg-red-400/10 text-red-400 border border-red-400/20'}`}>{type}</span>
-                        <div>
-                          <p className="text-xs text-[#aac4e0] leading-relaxed">{text}</p>
-                          <p className="text-[11px] text-slate-ai mt-1">{clause}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            }
-          ].map((f) => (
-            <div key={f.num} className={`grid grid-cols-2 gap-16 items-center mb-24 ${(f as any).reverse ? 'direction-rtl' : ''}`}
-              style={(f as any).reverse ? {direction:'rtl'} : {}}>
-              <div style={{direction:'ltr'}}>
-                <div className="font-display font-black text-[72px] leading-none tracking-[-0.04em] mb-[-16px]" style={{color:'rgba(30,138,255,0.08)'}}>{f.num}</div>
-                <h3 className="font-display font-black text-2xl tracking-[-0.02em] mb-4 leading-snug">{f.title}</h3>
-                <p className="text-sm font-light text-[#aac4e0] leading-relaxed mb-5">{f.desc}</p>
-                <ul className="flex flex-col gap-2.5">
-                  {f.bullets.map(b => (
-                    <li key={b} className="flex items-center gap-2.5 text-sm text-slate-ai">
-                      <span className="w-1.5 h-1.5 rounded-full bg-electric flex-shrink-0" />{b}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div style={{direction:'ltr'}}>{f.visual}</div>
+            { icon: '🤖', title: 'AI Document Query', desc: 'Ask questions in plain English. Get precise answers from your own licensed standard.' },
+            { icon: '📚', title: 'Standards Library', desc: 'Store all your licensed documents securely and access them from anywhere.' },
+            { icon: '🗒', title: 'Compliance Workbook', desc: 'Clause-by-clause tracking with evidence references and compliance status.' },
+            { icon: '🎯', title: 'Audit Readiness', desc: 'Auto-generated auditor questions with RAG status for every requirement.' },
+          ].map((f, i) => (
+            <div key={f.title} style={{ padding: '32px', borderRight: i < 3 ? '1px solid var(--border)' : 'none' }}>
+              <div style={{ width: '38px', height: '38px', background: 'var(--orange-soft)', border: '1px solid var(--orange-border)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px', marginBottom: '14px' }}>{f.icon}</div>
+              <h3 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 700, fontSize: '15px', color: 'var(--text)', marginBottom: '6px', letterSpacing: '-0.01em' }}>{f.title}</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.6, fontWeight: 300 }}>{f.desc}</p>
             </div>
           ))}
-        </section>
+        </div>
+      </section>
 
-        {/* ── HOW IT WORKS ── */}
-        <section id="how" className="py-20 px-12 border-t border-b border-white/[0.07]" style={{background:'rgba(19,41,82,0.3)'}}>
-          <div className="max-w-[1100px] mx-auto">
-            <div className="text-[11px] font-semibold tracking-[0.18em] uppercase text-electric mb-5">How it works</div>
-            <h2 className="font-display font-black text-[clamp(32px,4vw,52px)] tracking-[-0.03em] mb-16">Up and running in minutes.</h2>
-            <div className="grid grid-cols-3 gap-10 relative">
-              <div className="absolute top-7 pointer-events-none" style={{left:'calc(16.66% + 20px)',right:'calc(16.66% + 20px)',height:1,background:'linear-gradient(90deg, #1E8AFF, rgba(30,138,255,0.2))'}} />
-              {[
-                ['1','Upload your standard','Upload your licensed copy of any standard, guidance, or regulation. Your documents are private to your workspace.'],
-                ['2','Ask, explore & build','Ask questions in plain English, extract requirements into your workbook, annotate with notes, and generate checklists automatically.'],
-                ['3','Apply & stay current','Use workbooks and checklists to drive compliance. Get notified when standard versions change and track your transition.'],
-              ].map(([num,title,desc]) => (
-                <div key={num} className="flex flex-col gap-4">
-                  <div className="w-14 h-14 rounded-[14px] bg-electric flex items-center justify-center font-display font-black text-xl text-white" style={{boxShadow:'0 0 24px rgba(30,138,255,0.35)'}}>{num}</div>
-                  <div className="font-display font-black text-lg tracking-tight">{title}</div>
-                  <div className="text-sm font-light text-[#aac4e0] leading-relaxed">{desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── MORE FEATURES ── */}
-        <section className="py-28 px-12 max-w-[1100px] mx-auto">
-          <div className="text-[11px] font-semibold tracking-[0.18em] uppercase text-electric mb-5">More tools</div>
-          <h2 className="font-display font-black text-[clamp(32px,4vw,52px)] tracking-[-0.03em] mb-16">Built for every part of<br/>the compliance journey.</h2>
-          <div className="grid grid-cols-3 gap-5">
-            {[
-              ['🔍','Gap Analysis','Describe your situation and AIstands identifies exactly where you fall short against requirements — before an auditor does.','AI-powered'],
-              ['📎','Audit Preparation','A focused workspace to organise evidence clause by clause. Build a complete audit-ready picture from your workbook.','Audit-ready'],
-              ['📚','Standards Library','Browse a searchable directory of standards by name, number, and sector. Discover related standards in your industry.','Discovery'],
-              ['🗺','Regulation Mapping','Map standard clauses to relevant regulations. See how ISO 9001 maps to FDA 21 CFR or EN standards to UKCA requirements.','Cross-reference'],
-              ['💡','Smart Project Names','Upload a standard and get instant AI-suggested project names. Accept a suggestion or type your own.','AI suggestions'],
-              ['🔔','Version Alerts','Get notified when a standard you\'re tracking is updated. See what changed and what it means for your compliance work.','Stay current'],
-            ].map(([icon,title,desc,tag]) => (
-              <div key={title as string} className="card p-7 hover:border-electric/25 hover:bg-electric/[0.04] transition-all group relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-electric to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="w-11 h-11 rounded-[11px] bg-electric/10 border border-electric/15 flex items-center justify-center text-xl mb-4">{icon}</div>
-                <div className="font-display font-black text-base mb-2.5">{title}</div>
-                <div className="text-sm text-[#aac4e0] leading-relaxed mb-4">{desc}</div>
-                <span className="text-[11px] font-semibold tracking-wide uppercase text-electric-bright bg-electric/[0.08] px-2 py-1 rounded">{tag}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── PRICING ── */}
-        <PricingSection />
-
-        {/* ── FINAL CTA ── */}
-        <section className="py-28 px-12 text-center relative overflow-hidden border-t border-white/[0.07]">
-          <div className="absolute pointer-events-none" style={{width:600,height:400,borderRadius:'50%',background:'radial-gradient(ellipse, rgba(30,138,255,0.1) 0%, transparent 70%)',top:'50%',left:'50%',transform:'translate(-50%,-50%)'}} />
-          <h2 className="font-display font-black text-[clamp(36px,5vw,60px)] tracking-[-0.03em] leading-[1.06] mb-5 relative">
-            Ready to work smarter<br/>with <span className="text-electric">standards?</span>
+      {/* VS TABLE */}
+      <section style={{ padding: '64px 48px', background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <h2 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '34px', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: '8px', color: 'var(--text)' }}>
+            Why <em style={{ fontStyle: 'italic', fontWeight: 300, color: 'var(--orange)' }}>standards.online</em>?
           </h2>
-          <p className="text-lg font-light text-[#aac4e0] mb-10 relative">Start for free. No credit card required. Up and running in minutes.</p>
-          <Link href="/auth/signup" className="btn-primary text-base px-10 py-3.5 relative">
-            Get started free →
-          </Link>
-        </section>
-
-      </main>
-
-      {/* ── FOOTER ── */}
-      <footer className="px-12 py-12 border-t border-white/[0.07]">
-        <div className="max-w-[1100px] mx-auto grid gap-12" style={{gridTemplateColumns:'2fr 1fr 1fr 1fr'}}>
-          <div>
-            <Logo size="sm" />
-            <p className="text-sm font-light text-slate-ai mt-3 leading-relaxed max-w-[240px]">Your AI workspace for standards. Built for compliance professionals.</p>
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', marginBottom: '36px', fontWeight: 300 }}>Built for consultants and small teams who don't need enterprise pricing</p>
+          <div className="card" style={{ borderRadius: '14px', overflow: 'hidden' }}>
+            {[
+              { label: '', so: <span style={{ fontFamily: 'Epilogue, sans-serif', fontSize: '14px' }}><b>standards</b><span style={{ color: 'var(--orange-b)' }}>.</span><span style={{ fontWeight: 300 }}>online</span></span>, bsol: 'BSOL', acc: 'Accuris', astm: 'ASTM Compass', hdr: true },
+              { label: 'AI document query', so: '✓ Included', bsol: '✕', acc: '✕', astm: '✕' },
+              { label: 'Compliance workbook', so: '✓ Included', bsol: '✕', acc: '✕', astm: '✕' },
+              { label: 'Bring your own documents', so: '✓ Yes', bsol: 'Subscription only', acc: 'Subscription only', astm: 'Subscription only' },
+              { label: 'Starting price', so: '✓ £29/mo', bsol: '£80+/mo', acc: '£100+/mo', astm: '£80+/mo' },
+            ].map((row, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr', borderBottom: i < 4 ? '1px solid var(--border)' : 'none', background: row.hdr ? 'var(--navy)' : 'transparent' }}>
+                <div style={{ padding: '13px 20px', fontSize: '13px', fontWeight: row.hdr ? 700 : 500, color: row.hdr ? 'transparent' : 'var(--text)' }}>{row.label}</div>
+                {[row.so, row.bsol, row.acc, row.astm].map((cell, j) => (
+                  <div key={j} style={{ padding: '13px 20px', fontSize: row.hdr && j > 0 ? '10px' : '13px', color: row.hdr ? (j === 0 ? '#fff' : 'rgba(255,255,255,0.35)') : (j === 0 ? 'var(--orange)' : 'var(--text-muted)'), background: j === 0 && !row.hdr ? 'rgba(232,99,26,0.04)' : j === 0 && row.hdr ? 'rgba(232,99,26,0.15)' : 'transparent', fontFamily: row.hdr && j > 0 ? 'Epilogue, sans-serif' : 'inherit', fontWeight: row.hdr && j > 0 ? 700 : 'inherit', textTransform: row.hdr && j > 0 ? 'uppercase' as const : 'none' as const, letterSpacing: row.hdr && j > 0 ? '0.08em' : 0 }}>
+                    {typeof cell === 'string' && cell.startsWith('✕') ? <span style={{ color: 'var(--border-2)' }}>✕</span> : cell}
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
-          {[
-            ['Product',['Features','Pricing','How it works','Changelog']],
-            ['Company',['About','Blog','Contact','Careers']],
-            ['Legal',['Privacy policy','Terms of service','Cookie policy','Security']],
-          ].map(([title, links]) => (
-            <div key={title as string}>
-              <div className="text-xs font-semibold tracking-[0.12em] uppercase text-slate-ai mb-4">{title}</div>
-              <ul className="flex flex-col gap-2.5">
-                {(links as string[]).map(l => <li key={l}><a href="#" className="text-sm text-[rgba(141,163,192,0.6)] hover:text-white transition-colors">{l}</a></li>)}
-              </ul>
-            </div>
-          ))}
         </div>
-        <div className="max-w-[1100px] mx-auto mt-10 pt-6 border-t border-white/[0.07] flex justify-between items-center flex-wrap gap-3">
-          <p className="text-xs text-[rgba(141,163,192,0.4)]">© 2026 AIstands Ltd. All rights reserved.</p>
-          <div className="flex gap-5">
-            {['Privacy','Terms','Cookies'].map(l => <a key={l} href="#" className="text-xs text-[rgba(141,163,192,0.4)] hover:text-slate-ai transition-colors">{l}</a>)}
+      </section>
+
+      {/* PRICING */}
+      <section id="pricing" style={{ padding: '64px 48px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <h2 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '34px', letterSpacing: '-0.03em', textAlign: 'center', marginBottom: '8px', color: 'var(--text)' }}>
+            Simple, <em style={{ fontStyle: 'italic', fontWeight: 300, color: 'var(--orange)' }}>honest</em> pricing
+          </h2>
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', marginBottom: '40px', fontWeight: 300 }}>No hidden fees. No per-document charges. Just a flat monthly rate.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '16px' }}>
+            {[
+              { tier: 'Explorer', price: '£0', per: 'Free forever', feats: ['5 AI queries per month', '1 document stored', 'Basic workbook'], featured: false },
+              { tier: 'Professional', price: '£29', per: 'per month · save 20% annually', feats: ['100 AI queries', '5 documents stored', 'Full workbook + audit checklist'], featured: true },
+              { tier: 'Team', price: '£79', per: 'per month · 5 seats included', feats: ['Unlimited AI queries', 'Unlimited documents', '5 team members'], featured: false },
+            ].map(p => (
+              <div key={p.tier} style={{ background: p.featured ? 'var(--orange)' : 'var(--surface)', border: `1.5px solid ${p.featured ? 'var(--orange)' : 'var(--border)'}`, borderRadius: '16px', padding: '28px' }}>
+                <div style={{ fontFamily: 'Epilogue, sans-serif', fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: p.featured ? 'rgba(255,255,255,0.65)' : 'var(--text-muted)', marginBottom: '14px' }}>{p.tier}</div>
+                <div style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '44px', letterSpacing: '-0.04em', color: p.featured ? '#fff' : 'var(--text)', lineHeight: 1, marginBottom: '4px' }}>{p.price}</div>
+                <div style={{ fontSize: '13px', color: p.featured ? 'rgba(255,255,255,0.65)' : 'var(--text-muted)', marginBottom: '22px' }}>{p.per}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
+                  {p.feats.map(f => (
+                    <div key={f} style={{ fontSize: '13px', color: p.featured ? 'rgba(255,255,255,0.85)' : 'var(--text-mid)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: p.featured ? 'rgba(255,255,255,0.9)' : 'var(--orange)', fontWeight: 800, fontSize: '12px' }}>✓</span>
+                      {f}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer style={{ padding: '32px 48px', borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <a href="/" className="logo-mark sm">
+            <span className="lw">standards</span>
+            <span className="ld">.</span>
+            <span className="lt">online</span>
+          </a>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>© 2025 standards.online · Built for compliance professionals</p>
+          <ThemeToggle />
         </div>
       </footer>
-    </>
-  )
-}
 
-function PricingSection() {
-  return (
-    <section id="pricing" className="py-28 px-12 max-w-[1100px] mx-auto">
-      <div className="text-[11px] font-semibold tracking-[0.18em] uppercase text-electric mb-5">Pricing</div>
-      <h2 className="font-display font-black text-[clamp(32px,4vw,52px)] tracking-[-0.03em] mb-12">Simple, transparent pricing.</h2>
-      <div className="grid grid-cols-3 gap-5 items-start">
-        {[
-          { name:'Explorer', tagline:'Try AIstands free, no card required', price:'£0', period:'/month', features:[['✓','5 AI queries per month'],['✓','1 document upload'],['✓','Basic AI summaries'],['✗','Workbooks & annotations',true],['✗','Compliance checklists',true],['✗','Version tracking',true]], cta:'Get started free', featured:false },
-          { name:'Professional', tagline:'For individuals and small compliance teams', price:'£29', period:'/month', features:[['✓','100 AI queries per month'],['✓','Up to 5 documents'],['✓','5 projects'],['✓','Workbooks & annotations'],['✓','Compliance checklists'],['✓','Version tracking']], cta:'Start free trial', featured:true },
-          { name:'Team', tagline:'For growing teams with multiple standards', price:'£79', period:'/month', features:[['✓','Unlimited AI queries'],['✓','Unlimited documents'],['✓','20 projects + team (5 users)'],['✓','All Professional features'],['✓','Regulation mapping'],['✓','Priority support']], cta:'Start free trial', featured:false },
-        ].map(p => (
-          <div key={p.name} className={`rounded-[18px] p-8 border relative ${p.featured ? 'bg-electric/[0.06] border-electric/30' : 'card'}`}
-            style={p.featured ? {boxShadow:'0 0 48px rgba(30,138,255,0.08)'} : {}}>
-            {p.featured && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-electric text-white text-[11px] font-semibold px-3.5 py-1 rounded-full whitespace-nowrap">Most popular</div>}
-            <div className="font-display font-black text-xl mb-1.5">{p.name}</div>
-            <div className="text-sm text-slate-ai mb-7">{p.tagline}</div>
-            <div className="mb-7">
-              <span className="font-display font-black text-[44px] tracking-[-0.03em] leading-none">{p.price}</span>
-              <span className="text-sm text-slate-ai font-light ml-1">{p.period}</span>
-            </div>
-            <div className="h-px bg-white/[0.07] mb-6" />
-            <ul className="flex flex-col gap-3 mb-8">
-              {p.features.map(([icon,text,dim]) => (
-                <li key={text as string} className="flex items-start gap-2.5 text-sm">
-                  <span className={`flex-shrink-0 mt-0.5 ${dim ? 'text-slate-ai/30' : icon==='✓' ? 'text-emerald-400' : 'text-slate-ai/30'}`}>{icon}</span>
-                  <span className={dim ? 'opacity-30 text-[#aac4e0]' : 'text-[#aac4e0]'}>{text}</span>
-                </li>
-              ))}
-            </ul>
-            <Link href="/auth/signup" className={`w-full block text-center py-3 rounded-xl font-semibold text-sm transition-all ${p.featured ? 'btn-primary' : 'btn-ghost'}`}>
-              {p.cta}
-            </Link>
-          </div>
-        ))}
-      </div>
-      <div className="mt-10 p-7 card flex items-center justify-between gap-6 flex-wrap rounded-2xl">
-        <div>
-          <div className="font-display font-black text-lg mb-1.5">Enterprise</div>
-          <div className="text-sm text-slate-ai">SSO, API access, custom integrations, dedicated support, and volume licensing.</div>
-        </div>
-        <a href="mailto:hello@aistands.com" className="btn-secondary whitespace-nowrap">Contact us →</a>
-      </div>
-    </section>
+    </div>
   )
 }

@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import Link from 'next/link'
 
-type Tab = 'query' | 'workbook' | 'checklist' | 'versions'
+type Tab = 'query' | 'document' | 'workbook' | 'checklist' | 'versions'
 type Message = { role: 'user' | 'assistant'; content: string; webSearch?: boolean }
 
 export default function ProjectPage() {
@@ -22,8 +22,12 @@ export default function ProjectPage() {
   const [checklist, setChecklist] = useState<any[]>([])
   const [generatingChecklist, setGeneratingChecklist] = useState(false)
   const [generatingWorkbook, setGeneratingWorkbook] = useState(false)
+  const [documentUrl, setDocumentUrl] = useState<string>('')
+  const [loadingPdf, setLoadingPdf] = useState(false)
+  const [splitView, setSplitView] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  const isPdf = project?.file_name?.toLowerCase().endsWith('.pdf')
   const isPaidPlan = userPlan !== 'explorer'
 
   useEffect(() => {
@@ -52,6 +56,7 @@ export default function ProjectPage() {
     const { data } = await supabase.from('projects').select('*').eq('id', id).single()
     setProject(data)
   }
+
   async function loadConversation() {
     const { data } = await supabase
       .from('query_history')
@@ -67,13 +72,34 @@ export default function ProjectPage() {
       setMessages(loaded)
     }
   }
+
   async function loadWorkbook() {
     const { data } = await supabase.from('workbook_entries').select('*').eq('project_id', id).order('created_at')
     setWorkbookEntries(data || [])
   }
+
   async function loadChecklist() {
     const { data } = await supabase.from('checklist_items').select('*').eq('project_id', id).order('created_at')
     setChecklist(data || [])
+  }
+
+  async function loadDocumentUrl() {
+    if (documentUrl) return // already loaded
+    setLoadingPdf(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const res = await fetch('/api/document-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: id, userId: user.id })
+      })
+      const data = await res.json()
+      if (data.url) setDocumentUrl(data.url)
+    } catch (e) {
+      console.error('Failed to load document URL', e)
+    }
+    setLoadingPdf(false)
   }
 
   async function sendQuery() {
@@ -97,7 +123,6 @@ export default function ProjectPage() {
       const data = await res.json()
       setMessages(m => [...m, { role: 'assistant', content: data.answer, webSearch: data.webSearchUsed }])
 
-      // Save conversation to Supabase — get fresh user ID to avoid timing issues
       const { data: { user: currentUser } } = await supabase.auth.getUser()
       if (currentUser) {
         const { error: historyError } = await supabase.from('query_history').insert({
@@ -169,10 +194,11 @@ export default function ProjectPage() {
   }
 
   const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: 'query',     label: 'AI Query',  icon: '🤖' },
-    { key: 'workbook',  label: 'Workbook',  icon: '🗒'  },
-    { key: 'checklist', label: 'Checklist', icon: '✅'  },
-    { key: 'versions',  label: 'Versions',  icon: '🔔'  },
+    { key: 'query',     label: 'AI Query',   icon: '🤖' },
+    { key: 'document',  label: 'Document',   icon: '📄' },
+    { key: 'workbook',  label: 'Workbook',   icon: '🗒'  },
+    { key: 'checklist', label: 'Checklist',  icon: '✅'  },
+    { key: 'versions',  label: 'Versions',   icon: '🔔'  },
   ]
 
   if (!project) return (
@@ -180,6 +206,92 @@ export default function ProjectPage() {
       <div className="w-6 h-6 rounded-full border-2 border-electric border-t-transparent animate-spin" />
     </div>
   )
+
+  // Split view — PDF on left, AI chat on right
+  if (splitView) {
+    return (
+      <div className="flex flex-col h-screen">
+        {/* Header */}
+        <div className="flex items-center gap-4 px-6 py-4 border-b border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
+          <Link href="/dashboard/projects" className="text-slate-ai hover:text-white transition-colors text-sm">← Projects</Link>
+          <div className="w-px h-4 bg-white/10" />
+          <div>
+            <h1 className="font-display font-black text-base tracking-tight leading-none">{project.name}</h1>
+            <p className="text-xs text-slate-ai mt-0.5">{project.file_name}</p>
+          </div>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-xs text-emerald-400/70 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Split view
+            </span>
+            <button onClick={() => setSplitView(false)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-slate-ai hover:text-white hover:border-white/20 transition-all">
+              Exit split view
+            </button>
+          </div>
+        </div>
+
+        {/* Split panes */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* PDF pane */}
+          <div className="w-1/2 border-r border-white/[0.07] flex flex-col">
+            <div className="px-4 py-2 border-b border-white/[0.07] flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-ai">📄 {project.file_name}</span>
+            </div>
+            <div className="flex-1 overflow-hidden bg-[#0a1628]">
+              {documentUrl ? (
+                <iframe src={documentUrl} className="w-full h-full border-0" title="Document viewer" />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <button onClick={loadDocumentUrl} disabled={loadingPdf}
+                    className="btn-primary flex items-center gap-2">
+                    {loadingPdf ? (
+                      <><span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />Loading…</>
+                    ) : '📄 Load document'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Chat pane */}
+          <div className="w-1/2 flex flex-col">
+            <div className="flex-1 overflow-auto p-5 flex flex-col gap-4">
+              {messages.map((m, i) => (
+                <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {m.role === 'assistant' && (
+                    <div className="w-7 h-7 rounded-lg bg-electric/15 border border-electric/20 flex items-center justify-center text-xs flex-shrink-0 mt-1">🤖</div>
+                  )}
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap
+                    ${m.role === 'user'
+                      ? 'bg-electric text-white rounded-tr-sm'
+                      : 'bg-white/[0.04] border border-white/[0.07] text-[#aac4e0] rounded-tl-sm'}`}>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-electric/15 border border-electric/20 flex items-center justify-center text-xs">🤖</div>
+                  <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl rounded-tl-sm px-4 py-3 flex gap-1.5 items-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-electric animate-bounce" style={{animationDelay:'0ms'}} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-electric animate-bounce" style={{animationDelay:'150ms'}} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-electric animate-bounce" style={{animationDelay:'300ms'}} />
+                  </div>
+                </div>
+              )}
+              <div ref={bottomRef} />
+            </div>
+            <div className="p-4 border-t border-white/[0.07] flex gap-2" style={{background:'#0e2245'}}>
+              <input className="input flex-1 text-sm" placeholder="Ask about your standard…"
+                value={input} onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendQuery()} />
+              <button onClick={sendQuery} disabled={!input.trim() || loading} className="btn-primary px-5 text-sm">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-screen">
@@ -197,7 +309,10 @@ export default function ProjectPage() {
       {/* Tabs */}
       <div className="flex gap-1 px-8 py-3 border-b border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
         {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
+          <button key={t.key} onClick={() => {
+            setTab(t.key)
+            if (t.key === 'document') loadDocumentUrl()
+          }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
               ${tab === t.key ? 'bg-electric/10 text-electric-bright border border-electric/20' : 'text-slate-ai hover:text-white hover:bg-white/[0.04]'}`}>
             <span>{t.icon}</span>{t.label}
@@ -216,8 +331,14 @@ export default function ProjectPage() {
                   <div className="text-4xl">🤖</div>
                   <div>
                     <div className="font-display font-bold text-xl mb-2">Ask anything about {project.name}</div>
-                    <p className="text-sm text-slate-ai max-w-sm">Ask questions in plain English. AIstands answers from your document{isPaidPlan ? ' — optionally enhanced with web sources' : ''}.</p>
+                    <p className="text-sm text-slate-ai max-w-sm">Ask questions in plain English. AIstands answers from your document — optionally enhanced with web sources.</p>
                   </div>
+                  {isPdf && (
+                    <button onClick={() => { setSplitView(true); loadDocumentUrl() }}
+                      className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border border-electric/20 text-electric-bright hover:bg-electric/10 transition-all">
+                      <span>⬛</span> Open split view — read & ask side by side
+                    </button>
+                  )}
                   <div className="flex flex-wrap gap-2 justify-center max-w-lg">
                     {["What are the main requirements?","Which clauses are mandatory?","What evidence do I need?","Summarise clause 7","How do auditors assess this?"].map(q => (
                       <button key={q} onClick={() => setInput(q)}
@@ -243,8 +364,7 @@ export default function ProjectPage() {
                     <div className={`rounded-2xl px-5 py-3.5 text-sm leading-relaxed whitespace-pre-wrap
                       ${m.role === 'user'
                         ? 'bg-electric text-white rounded-tr-sm'
-                        : 'bg-white/[0.04] border border-white/[0.07] text-[#aac4e0] rounded-tl-sm'
-                      }`}>
+                        : 'bg-white/[0.04] border border-white/[0.07] text-[#aac4e0] rounded-tl-sm'}`}>
                       {m.content}
                     </div>
                   </div>
@@ -255,7 +375,7 @@ export default function ProjectPage() {
                 <div className="flex gap-4">
                   <div className="w-8 h-8 rounded-lg bg-electric/15 border border-electric/20 flex items-center justify-center text-sm flex-shrink-0">🤖</div>
                   <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl rounded-tl-sm px-5 py-3.5 flex items-center gap-2">
-                    {useWebSearch && isPaidPlan && <span className="text-xs text-emerald-400/70 mr-1">🌐 Searching web…</span>}
+                    {useWebSearch && <span className="text-xs text-emerald-400/70 mr-1">🌐 Searching web…</span>}
                     <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'0ms'}} />
                     <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'150ms'}} />
                     <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'300ms'}} />
@@ -265,57 +385,76 @@ export default function ProjectPage() {
               <div ref={bottomRef} />
             </div>
 
-            {/* Input area */}
             <div className="p-6 border-t border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
-
-              {/* Web search toggle — paid plans only */}
-              {isPaidPlan ? (
-                <div className="flex items-center gap-3 mb-3">
-                  <button
-                    onClick={() => setUseWebSearch(!useWebSearch)}
-                    className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all
-                      ${useWebSearch
-                        ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400'
-                        : 'bg-white/[0.04] border-white/10 text-slate-ai hover:border-white/20 hover:text-white'
-                      }`}
-                  >
-                    <span>🌐</span>
-                    <span>{useWebSearch ? 'Web search ON' : 'Web search OFF'}</span>
-                    <span className={`w-7 h-4 rounded-full transition-all relative ${useWebSearch ? 'bg-emerald-400' : 'bg-white/20'}`}>
-                      <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${useWebSearch ? 'left-3.5' : 'left-0.5'}`} />
-                    </span>
-                  </button>
-                  <span className="text-xs text-slate-ai">
-                    {useWebSearch ? 'Answers combine your document + live web sources' : 'Answers from your document only'}
+              <div className="flex items-center gap-3 mb-3">
+                <button onClick={() => setUseWebSearch(!useWebSearch)}
+                  className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all
+                    ${useWebSearch
+                      ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400'
+                      : 'bg-white/[0.04] border-white/10 text-slate-ai hover:border-white/20 hover:text-white'}`}>
+                  <span>🌐</span>
+                  <span>{useWebSearch ? 'Web search ON' : 'Web search OFF'}</span>
+                  <span className={`w-7 h-4 rounded-full transition-all relative ${useWebSearch ? 'bg-emerald-400' : 'bg-white/20'}`}>
+                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${useWebSearch ? 'left-3.5' : 'left-0.5'}`} />
                   </span>
+                </button>
+                <span className="text-xs text-slate-ai">
+                  {useWebSearch ? 'Answers combine your document + live web sources' : 'Answers from your document only'}
+                </span>
+                {isPdf && messages.length > 0 && (
+                  <button onClick={() => { setSplitView(true); loadDocumentUrl() }}
+                    className="ml-auto text-xs px-3 py-1.5 rounded-lg border border-white/10 text-slate-ai hover:border-electric/30 hover:text-electric-bright transition-all flex items-center gap-1.5">
+                    <span>⬛</span> Split view
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <input className="input flex-1" placeholder="Ask a question about your standard…"
+                  value={input} onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendQuery()} />
+                <button onClick={sendQuery} disabled={!input.trim() || loading} className="btn-primary px-6">Send</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* DOCUMENT TAB */}
+        {tab === 'document' && (
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between px-8 py-3 border-b border-white/[0.07] flex-shrink-0">
+              <span className="text-sm text-slate-ai">📄 {project.file_name}</span>
+              {isPdf && (
+                <button onClick={() => { setSplitView(true); loadDocumentUrl() }}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-electric/20 text-electric-bright hover:bg-electric/10 transition-all flex items-center gap-1.5">
+                  <span>⬛</span> Open with AI chat
+                </button>
+              )}
+            </div>
+            <div className="flex-1 overflow-hidden bg-[#0a1628]">
+              {loadingPdf ? (
+                <div className="flex items-center justify-center h-full gap-3">
+                  <div className="w-5 h-5 rounded-full border-2 border-electric border-t-transparent animate-spin" />
+                  <span className="text-sm text-slate-ai">Loading document…</span>
                 </div>
-              ) : (
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border border-white/10 text-slate-ai/50 cursor-not-allowed">
-                    <span>🌐</span>
-                    <span>Web search</span>
-                    <span className="w-7 h-4 rounded-full bg-white/10 relative">
-                      <span className="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white/30" />
-                    </span>
+              ) : documentUrl ? (
+                isPdf ? (
+                  <iframe src={documentUrl} className="w-full h-full border-0" title="Document viewer" />
+                ) : (
+                  <div className="flex items-center justify-center h-full flex-col gap-4">
+                    <div className="text-4xl">📄</div>
+                    <p className="text-sm text-slate-ai">Preview not available for this file type.</p>
+                    <a href={documentUrl} target="_blank" rel="noopener noreferrer" className="btn-primary">
+                      Download file
+                    </a>
                   </div>
-                  <Link href="/dashboard/settings" className="text-xs text-electric-bright hover:underline">
-                    Upgrade to Professional to enable web search →
-                  </Link>
+                )
+              ) : (
+                <div className="flex items-center justify-center h-full flex-col gap-4">
+                  <div className="text-4xl">📄</div>
+                  <p className="text-sm text-slate-ai">Click below to load your document</p>
+                  <button onClick={loadDocumentUrl} className="btn-primary">Load document</button>
                 </div>
               )}
-
-              <div className="flex gap-3">
-                <input
-                  className="input flex-1"
-                  placeholder="Ask a question about your standard…"
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendQuery()}
-                />
-                <button onClick={sendQuery} disabled={!input.trim() || loading} className="btn-primary px-6">
-                  Send
-                </button>
-              </div>
             </div>
           </div>
         )}

@@ -1,10 +1,12 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-client'
-import { Logo } from '@/components/ui/Logo'
+import { ThemeToggle } from '@/components/theme-provider'
 
 export default function SignupPage() {
+  const router = useRouter()
   const supabase = createClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -13,80 +15,104 @@ export default function SignupPage() {
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
 
-  async function handleSignup(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSignup() {
+    if (!email || !password || !name) return
     setLoading(true)
     setError('')
     const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: name },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      }
+      email, password,
+      options: { data: { full_name: name } }
     })
-    if (error) { setError(error.message); setLoading(false) }
-    else setDone(true)
+    if (error) { setError(error.message); setLoading(false); return }
+    setDone(true)
   }
 
-  if (done) return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{background:'#0B1E3E'}}>
-      <div className="text-center max-w-sm">
-        <div className="text-5xl mb-6">✉️</div>
-        <Logo size="sm" />
-        <h2 className="font-display font-black text-2xl mt-6 mb-3">Check your email</h2>
-        <p className="text-sm text-[#8DA3C0] leading-relaxed">
-          We sent a confirmation link to <strong className="text-white">{email}</strong>. Click it to activate your account.
-        </p>
-        <Link href="/auth/login" className="btn-secondary mt-6 inline-block">Back to login</Link>
-      </div>
-    </div>
-  )
-
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{background:'#0B1E3E'}}>
-      <div className="fixed inset-0 pointer-events-none" style={{backgroundImage:'linear-gradient(rgba(30,138,255,0.03) 1px, transparent 1px),linear-gradient(90deg, rgba(30,138,255,0.03) 1px, transparent 1px)',backgroundSize:'48px 48px',maskImage:'radial-gradient(ellipse 60% 60% at 50% 50%, black 30%, transparent 100%)'}} />
-      <div className="w-full max-w-[420px] relative">
-        <div className="text-center mb-8">
-          <Logo size="md" />
-          <p className="text-sm text-[#8DA3C0] mt-2">Your AI workspace for standards</p>
-        </div>
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          {[['5','Free queries'],['1','Free project'],['∞','Standards supported']].map(([val,label]) => (
-            <div key={label} className="card rounded-xl p-3 text-center">
-              <div className="font-display font-black text-xl text-electric">{val}</div>
-              <div className="text-[11px] text-[#8DA3C0] mt-0.5">{label}</div>
-            </div>
-          ))}
-        </div>
-        <div className="rounded-2xl p-8" style={{background:'#132952',border:'1px solid rgba(255,255,255,0.07)'}}>
-          <form onSubmit={handleSignup} className="flex flex-col gap-5">
-            <div>
-              <label className="label">Full name</label>
-              <input className="input" type="text" placeholder="Your name" value={name} onChange={e=>setName(e.target.value)} required />
-            </div>
-            <div>
-              <label className="label">Work email</label>
-              <input className="input" type="email" placeholder="you@company.com" value={email} onChange={e=>setEmail(e.target.value)} required />
-            </div>
-            <div>
-              <label className="label">Password</label>
-              <input className="input" type="password" placeholder="Min. 8 characters" value={password} onChange={e=>setPassword(e.target.value)} minLength={8} required />
-            </div>
-            {error && <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
-            <button type="submit" disabled={loading} className="btn-primary w-full justify-center mt-1">
-              {loading ? 'Creating account…' : 'Create free account'}
-            </button>
-            <p className="text-[11px] text-[#8DA3C0] text-center">
-              By signing up you agree to our <Link href="/terms" className="text-electric-bright hover:underline">Terms</Link> and <Link href="/privacy" className="text-electric-bright hover:underline">Privacy Policy</Link>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 32px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+        <Link href="/" style={{ textDecoration: 'none' }}>
+          <span style={{ fontFamily: 'Epilogue, sans-serif', fontSize: '20px', letterSpacing: '-0.03em', lineHeight: 1 }}>
+            <span style={{ fontWeight: 800, color: 'var(--text)' }}>standards</span>
+            <span style={{ fontWeight: 800, color: 'var(--orange)' }}>.</span>
+            <span style={{ fontWeight: 300, color: 'var(--text)' }}>online</span>
+          </span>
+        </Link>
+        <ThemeToggle />
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
+        <div style={{ width: '100%', maxWidth: '400px' }}>
+
+          <div style={{ textAlign: 'center', marginBottom: '36px' }}>
+            <h1 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '28px', letterSpacing: '-0.03em', color: 'var(--text)', marginBottom: '8px' }}>
+              Start for free
+            </h1>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 300 }}>
+              No credit card required · Cancel anytime
             </p>
-          </form>
-          <div className="mt-6 text-center">
-            <div className="h-px bg-white/[0.07] mb-6" />
-            <p className="text-sm text-[#8DA3C0]">Already have an account? <Link href="/auth/login" className="text-electric-bright hover:underline font-medium">Sign in</Link></p>
           </div>
+
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '32px', boxShadow: 'var(--shadow-md)' }}>
+
+            {done ? (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <div style={{ fontSize: '40px', marginBottom: '16px' }}>✉️</div>
+                <h2 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '20px', color: 'var(--text)', marginBottom: '8px' }}>Check your email</h2>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, fontWeight: 300 }}>
+                  We've sent a confirmation link to <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{email}</strong>. Click it to activate your account.
+                </p>
+              </div>
+            ) : (
+              <>
+                {error && (
+                  <div style={{ background: 'rgba(185,28,28,0.07)', border: '1px solid rgba(185,28,28,0.18)', borderRadius: '8px', padding: '10px 14px', marginBottom: '20px', fontSize: '13px', color: '#b91c1c' }}>
+                    {error}
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '18px' }}>
+                  <label className="label">Full name</label>
+                  <input className="input" type="text" placeholder="Jane Smith" value={name}
+                    onChange={e => setName(e.target.value)} autoComplete="name" />
+                </div>
+
+                <div style={{ marginBottom: '18px' }}>
+                  <label className="label">Email</label>
+                  <input className="input" type="email" placeholder="you@company.com" value={email}
+                    onChange={e => setEmail(e.target.value)} autoComplete="email" />
+                </div>
+
+                <div style={{ marginBottom: '24px' }}>
+                  <label className="label">Password</label>
+                  <input className="input" type="password" placeholder="Min. 8 characters" value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSignup()}
+                    autoComplete="new-password" />
+                </div>
+
+                <button onClick={handleSignup}
+                  disabled={!email || !password || !name || loading}
+                  style={{ width: '100%', background: 'var(--orange)', color: '#fff', border: 'none', padding: '13px', borderRadius: '9px', fontSize: '15px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', opacity: (!email || !password || !name || loading) ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  {loading ? (
+                    <><span style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Creating account…</>
+                  ) : 'Create free account'}
+                </button>
+
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px', textAlign: 'center' }}>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                    Already have an account?{' '}
+                    <Link href="/auth/login" style={{ color: 'var(--orange)', textDecoration: 'none', fontWeight: 600 }}>Sign in</Link>
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
         </div>
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

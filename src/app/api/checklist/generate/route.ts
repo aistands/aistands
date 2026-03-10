@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    // Check if checklist already exists — return existing if so
+    // Return cached checklist if already generated
     const { data: existing } = await supabase
       .from('checklist_items')
       .select('*')
@@ -51,30 +51,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const prompt = `You are a lead auditor preparing an audit readiness checklist for this standards document.
+    // Keep prompt compact to stay within timeout
+    const prompt = `You are a lead auditor. Create an audit readiness checklist from this standards document.
 
-For each major clause and requirement, create an audit readiness question that a compliance manager can use to assess their preparedness.
-
-Return ONLY a valid JSON array. Each item must have:
-- clause: the clause number (e.g. "4.1", "B.10")
-- requirement: one sentence describing what the clause requires
-- audit_question: a specific question phrased as an auditor would ask it (e.g. "Can you demonstrate documented evidence of...?", "Is there a documented procedure for...?", "Who is the designated responsible person for...?")
-- responsible_person: empty string
-- evidence_ref: empty string  
+For each clause return a JSON object with ONLY these fields (keep values short):
+- clause: clause number e.g. "4.1"
+- requirement: max 10 words describing what is required
+- audit_question: one short auditor question e.g. "Is there documented evidence of X?"
 - status: "red"
 
-Cover EVERY clause and sub-clause in the entire document without exception — including all annexes, appendices and normative sections. Do not stop early. No preamble, no markdown, just the JSON array.`
+Cover all clauses including annexes. Return ONLY a JSON array, no markdown.`
 
     const messageContent: any[] = pdfBase64
       ? [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } } as any,
           { type: 'text', text: prompt }
         ]
-      : [{ type: 'text', text: `Document:\n\n${documentText.slice(0, 150000)}\n\n${prompt}` }]
+      : [{ type: 'text', text: `Document:\n\n${documentText.slice(0, 120000)}\n\n${prompt}` }]
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 6000,
+      max_tokens: 4000,
       messages: [{ role: 'user', content: messageContent }]
     })
 
@@ -106,14 +103,14 @@ Cover EVERY clause and sub-clause in the entire document without exception — i
       created_at: new Date().toISOString()
     }))
 
-    // Save permanently
+    // Delete old entries and insert new
+    await supabase.from('checklist_items').delete().eq('project_id', projectId)
     const { data: inserted, error: insertError } = await supabase
       .from('checklist_items')
       .insert(records)
       .select()
 
     if (insertError) {
-      console.error('Insert error:', insertError.message)
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 

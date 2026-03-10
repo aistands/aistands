@@ -8,7 +8,6 @@ import { Logo } from '@/components/ui/Logo'
 const NAV = [
   { href:'/dashboard',           icon:'🏠', label:'Overview' },
   { href:'/dashboard/projects',  icon:'📁', label:'Projects' },
-  { href:'/dashboard/workbook',  icon:'🗒',  label:'Workbooks' },
   { href:'/dashboard/library',   icon:'📚', label:'Standards Library' },
   { href:'/dashboard/settings',  icon:'⚙️', label:'Settings' },
 ]

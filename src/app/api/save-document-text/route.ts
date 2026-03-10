@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     if (extracted.length > 100) {
       await supabase.from('projects').update({
-        document_text: extracted.slice(0, 100000)
+        document_text: extracted
       }).eq('id', projectId)
       return NextResponse.json({ success: true, textLength: extracted.length })
     }

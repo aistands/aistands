@@ -46,7 +46,7 @@ If using web sources, clearly distinguish between what the document says vs exte
 
     if (project.document_text && project.document_text.length > 100) {
       // Use saved text — send up to 80k chars (covers most large standards)
-      const docText = project.document_text.slice(0, 80000)
+      const docText = project.document_text.slice(0, 150000)
 
       const userMessage = useWebSearch
         ? `Using the document below AND web search for supporting guidance, answer this question. Label what comes from the document vs web.\n\nDocument:\n<document>\n${docText}\n</document>\n\nQuestion: ${question}`

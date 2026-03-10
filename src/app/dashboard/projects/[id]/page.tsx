@@ -61,6 +61,15 @@ export default function ProjectPage() {
       })
       const data = await res.json()
       setMessages(m => [...m, { role: 'assistant', content: data.answer, webSearch: data.webSearchUsed }])
+
+      // If document text wasn't cached, save it now in a separate call
+      if (data.needsTextSave) {
+        fetch('/api/save-document-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: id, userId })
+        }).catch(() => {})
+      }
     } catch {
       setMessages(m => [...m, { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' }])
     }

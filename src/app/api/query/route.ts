@@ -33,48 +33,38 @@ export async function POST(req: NextRequest) {
     }))
 
     const system = `You are AIstands, an expert AI assistant for standards and compliance professionals.
-
-Your job:
-- Answer questions clearly and accurately in plain English
-- Always reference specific clause numbers from the document when relevant
-- Be precise — compliance professionals rely on your answers for real decisions
-- If using web sources, clearly distinguish between what the document says vs external guidance
-- If unsure about something, say so honestly${useWebSearch ? `
-- When using web search, prioritise official sources: standards bodies (ISO, BSI, ANSI), certification bodies (UKAS, IAQG), government regulators, and established quality/compliance organisations
-- Always make clear which parts of your answer come from the uploaded document vs web sources` : ''}`
+Answer questions clearly and accurately in plain English.
+Always reference specific clause numbers from the document when relevant.
+Be precise — compliance professionals rely on your answers.
+If using web sources, clearly distinguish between what the document says vs external guidance.
+If unsure about something, say so honestly.`
 
     let answer = ''
+    let needsTextSave = false
 
     if (project.document_text && project.document_text.length > 100) {
-      // Fast path — use saved text
+      // Fast path — text already saved, just query
       const userMessage = useWebSearch
-        ? `Using the document below AND web search for supporting guidance, answer this question. Clearly label what comes from the document vs web sources.\n\nDocument:\n<document>\n${project.document_text.slice(0, 25000)}\n</document>\n\nQuestion: ${question}`
+        ? `Using the document below AND web search for supporting guidance, answer this question. Label what comes from the document vs web.\n\nDocument:\n<document>\n${project.document_text.slice(0, 25000)}\n</document>\n\nQuestion: ${question}`
         : `Document:\n\n<document>\n${project.document_text.slice(0, 30000)}\n</document>\n\nQuestion: ${question}`
-
-      const messages: any[] = [
-        ...conversationHistory,
-        { role: 'user', content: userMessage }
-      ]
 
       const requestParams: any = {
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
         system,
-        messages,
+        messages: [...conversationHistory, { role: 'user', content: userMessage }],
       }
-
       if (useWebSearch) {
         requestParams.tools = [{ type: 'web_search_20250305', name: 'web_search' }]
       }
 
       const response = await anthropic.messages.create(requestParams)
-      answer = response.content
-        .filter((b: any) => b.type === 'text')
-        .map((b: any) => b.text)
-        .join('\n')
+      answer = response.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n')
 
     } else {
-      // No saved text — send PDF directly
+      // No saved text — send PDF directly for this query only
+      needsTextSave = true
+
       const { data: fileData, error: storageError } = await supabase.storage
         .from('documents')
         .download(project.file_path)
@@ -91,7 +81,7 @@ Your job:
         {
           type: 'text',
           text: useWebSearch
-            ? `Answer this question using both the document above AND web search for supporting guidance. Clearly label what comes from the document vs web sources.\n\nQuestion: ${question}`
+            ? `Answer using the document AND web search. Label sources.\n\nQuestion: ${question}`
             : question
         }
       ]
@@ -100,58 +90,27 @@ Your job:
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
         system,
-        messages: [
-          ...conversationHistory,
-          { role: 'user', content: userContent }
-        ],
+        messages: [...conversationHistory, { role: 'user', content: userContent }],
       }
-
       if (useWebSearch) {
         requestParams.tools = [{ type: 'web_search_20250305', name: 'web_search' }]
       }
 
       const response = await anthropic.messages.create(requestParams)
-      answer = response.content
-        .filter((b: any) => b.type === 'text')
-        .map((b: any) => b.text)
-        .join('\n')
-
-      // Background text extraction after delay
-      setTimeout(async () => {
-        try {
-          const extractRes = await anthropic.messages.create({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 4000,
-            messages: [{
-              role: 'user',
-              content: [
-                { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } } as any,
-                { type: 'text', text: 'Extract all text from this document preserving clause numbers and requirements.' }
-              ]
-            }]
-          })
-          const extracted = extractRes.content[0].type === 'text' ? extractRes.content[0].text : ''
-          if (extracted.length > 100) {
-            await supabase.from('projects').update({
-              document_text: extracted.slice(0, 50000)
-            }).eq('id', projectId)
-          }
-        } catch (e) {
-          console.log('Background extraction skipped')
-        }
-      }, 10000)
+      answer = response.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n')
     }
 
     await supabase.from('projects').update({
       query_count: (project.query_count || 0) + 1
     }).eq('id', projectId)
 
-    return NextResponse.json({ answer, webSearchUsed: useWebSearch })
+    // Tell the client to trigger text saving in a separate call
+    return NextResponse.json({ answer, needsTextSave, webSearchUsed: useWebSearch })
 
   } catch (err: any) {
     console.error('Query error:', err.message)
     if (err.message?.includes('rate_limit')) {
-      return NextResponse.json({ answer: 'The AI is busy right now. Please wait 30 seconds and try again.' })
+      return NextResponse.json({ answer: 'Rate limit hit — please wait 30 seconds and try again. This will stop happening once your document text is cached.' })
     }
     return NextResponse.json({ answer: `Error: ${err.message}` })
   }

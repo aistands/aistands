@@ -9,7 +9,8 @@ function ProjectsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [projects, setProjects] = useState<any[]>([])
-  const [showModal, setShowModal] = useState(searchParams.get('new') === '1')
+  const [showModal, setShowModal] = useState(searchParams.get('new') === '1' || !!searchParams.get('from_library'))
+  const libraryStandardId = searchParams.get('from_library') || ''
   const [creating, setCreating] = useState(false)
   const [creatingStatus, setCreatingStatus] = useState('')
   const [name, setName] = useState('')
@@ -17,9 +18,18 @@ function ProjectsContent() {
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => { loadProjects() }, [])
+  useEffect(() => {
+    loadProjects()
+    if (libraryStandardId) loadLibraryStandard(libraryStandardId)
+  }, [])
 
   async function loadProjects() {
+  async function loadLibraryStandard(id: string) {
+    const { data } = await supabase.from("standards_library").select("*").eq("id", id).single()
+    if (data) {
+      setName(data.title)
+    }
+  }
     const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false })
     setProjects(data || [])
   }

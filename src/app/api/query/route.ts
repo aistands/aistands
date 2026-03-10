@@ -33,24 +33,28 @@ export async function POST(req: NextRequest) {
     }))
 
     const system = `You are AIstands, an expert AI assistant for standards and compliance professionals.
+You have been provided with the full text of a standards document uploaded by the user.
+The document text is complete — do not say you cannot see sections or that content is missing.
+If a section is not in the text provided, say "that section was not captured during extraction — please try re-uploading the document."
 Answer questions clearly and accurately in plain English.
 Always reference specific clause numbers from the document when relevant.
 Be precise — compliance professionals rely on your answers.
-If using web sources, clearly distinguish between what the document says vs external guidance.
-If unsure about something, say so honestly.`
+If using web sources, clearly distinguish between what the document says vs external guidance.`
 
     let answer = ''
     let needsTextSave = false
 
     if (project.document_text && project.document_text.length > 100) {
-      // Fast path — text already saved, just query
+      // Use saved text — send up to 80k chars (covers most large standards)
+      const docText = project.document_text.slice(0, 80000)
+
       const userMessage = useWebSearch
-        ? `Using the document below AND web search for supporting guidance, answer this question. Label what comes from the document vs web.\n\nDocument:\n<document>\n${project.document_text.slice(0, 25000)}\n</document>\n\nQuestion: ${question}`
-        : `Document:\n\n<document>\n${project.document_text.slice(0, 30000)}\n</document>\n\nQuestion: ${question}`
+        ? `Using the document below AND web search for supporting guidance, answer this question. Label what comes from the document vs web.\n\nDocument:\n<document>\n${docText}\n</document>\n\nQuestion: ${question}`
+        : `Document:\n\n<document>\n${docText}\n</document>\n\nQuestion: ${question}`
 
       const requestParams: any = {
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: 1500,
         system,
         messages: [...conversationHistory, { role: 'user', content: userMessage }],
       }
@@ -62,7 +66,7 @@ If unsure about something, say so honestly.`
       answer = response.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n')
 
     } else {
-      // No saved text — send PDF directly for this query only
+      // No saved text — send PDF directly
       needsTextSave = true
 
       const { data: fileData, error: storageError } = await supabase.storage
@@ -76,21 +80,20 @@ If unsure about something, say so honestly.`
       const bytes = await fileData.arrayBuffer()
       const base64 = Buffer.from(bytes).toString('base64')
 
-      const userContent: any[] = [
-        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-        {
-          type: 'text',
-          text: useWebSearch
-            ? `Answer using the document AND web search. Label sources.\n\nQuestion: ${question}`
-            : question
-        }
-      ]
-
       const requestParams: any = {
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: 1500,
         system,
-        messages: [...conversationHistory, { role: 'user', content: userContent }],
+        messages: [
+          ...conversationHistory,
+          {
+            role: 'user',
+            content: [
+              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } } as any,
+              { type: 'text', text: useWebSearch ? `Answer using the document AND web search. Label sources.\n\nQuestion: ${question}` : question }
+            ]
+          }
+        ],
       }
       if (useWebSearch) {
         requestParams.tools = [{ type: 'web_search_20250305', name: 'web_search' }]
@@ -104,13 +107,12 @@ If unsure about something, say so honestly.`
       query_count: (project.query_count || 0) + 1
     }).eq('id', projectId)
 
-    // Tell the client to trigger text saving in a separate call
     return NextResponse.json({ answer, needsTextSave, webSearchUsed: useWebSearch })
 
   } catch (err: any) {
     console.error('Query error:', err.message)
     if (err.message?.includes('rate_limit')) {
-      return NextResponse.json({ answer: 'Rate limit hit — please wait 30 seconds and try again. This will stop happening once your document text is cached.' })
+      return NextResponse.json({ answer: 'The AI is busy right now — please wait 30 seconds and try again.' })
     }
     return NextResponse.json({ answer: `Error: ${err.message}` })
   }

@@ -151,17 +151,21 @@ export default function ProjectPage() {
 
   async function generateWorkbook() {
     setGeneratingWorkbook(true)
-    const res = await fetch('/api/workbook/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectId: id })
-    })
-    const data = await res.json()
-    if (data.entries) {
-      const { data: inserted } = await supabase.from('workbook_entries').insert(
-        data.entries.map((e: any) => ({ ...e, project_id: id, id: undefined }))
-      ).select()
-      setWorkbookEntries(inserted || [])
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const res = await fetch('/api/workbook/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: id, userId: user?.id })
+      })
+      const data = await res.json()
+      if (data.entries) {
+        setWorkbookEntries(data.entries)
+      } else {
+        alert('Failed to generate workbook: ' + (data.error || 'Unknown error'))
+      }
+    } catch (e: any) {
+      alert('Error: ' + e.message)
     }
     setGeneratingWorkbook(false)
   }

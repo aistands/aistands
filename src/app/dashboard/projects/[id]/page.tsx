@@ -597,11 +597,13 @@ export default function ProjectPage() {
 
                     {/* Notes */}
                     <div className="flex items-start gap-2">
-                      <input
-                        className="input text-xs flex-1 py-1.5"
+                      <textarea
+                        className="input text-xs flex-1 py-1.5 resize-none overflow-hidden leading-relaxed"
                         placeholder="Add notes or evidence reference…"
                         defaultValue={entry.notes}
-                        onBlur={e => updateEntryField(entry.id!, 'notes', e.target.value)}
+                        rows={1}
+                        onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = t.scrollHeight + "px" }}
+                        onBlur={e => updateEntryField(entry.id!, "notes", e.target.value)}
                       />
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                         <button onClick={() => startEdit(entry)}

@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get unique standards being watched
-    const watchedRefs = [...new Set(subscriptions.map(s => s.standard_ref))]
+    const watchedRefs = Array.from(new Set(subscriptions.map(s => s.standard_ref)))
 
     // Get latest data for those standards
     const { data: standards } = await supabase

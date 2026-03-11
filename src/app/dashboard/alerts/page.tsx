@@ -392,7 +392,7 @@ export default function AlertsPage() {
                 onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)'}
                 onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}>
 
-                <span style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 700, fontSize: '13px', color: 'var(--text)', background: 'var(--orange-soft)', border: '1px solid var(--orange-border)', color: 'var(--orange-b)', padding: '3px 9px', borderRadius: '5px', display: 'inline-block' }}>
+                <span style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 700, fontSize: '13px', background: 'var(--orange-soft)', border: '1px solid var(--orange-border)', color: 'var(--orange-b)', padding: '3px 9px', borderRadius: '5px', display: 'inline-block' }}>
                   {sub.standard_ref}
                 </span>
 

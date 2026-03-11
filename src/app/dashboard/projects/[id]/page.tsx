@@ -25,14 +25,27 @@ type ImportSuggestion = {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'not_started',    label: 'Not started',    color: 'text-slate-ai',      bg: 'bg-white/[0.04]',        border: 'border-white/10' },
-  { value: 'in_progress',    label: 'In progress',    color: 'text-amber-400',     bg: 'bg-amber-400/10',        border: 'border-amber-400/30' },
-  { value: 'compliant',      label: 'Compliant',      color: 'text-emerald-400',   bg: 'bg-emerald-400/10',      border: 'border-emerald-400/30' },
-  { value: 'not_applicable', label: 'Not applicable', color: 'text-slate-ai',      bg: 'bg-white/[0.06]',        border: 'border-white/10' },
+  { value: 'not_started',    label: 'Not started'    },
+  { value: 'in_progress',    label: 'In progress'    },
+  { value: 'compliant',      label: 'Compliant'      },
+  { value: 'not_applicable', label: 'Not applicable' },
 ]
 
-function statusStyle(value: string) {
-  return STATUS_OPTIONS.find(s => s.value === value) || STATUS_OPTIONS[0]
+function statusSelectStyle(value: string): React.CSSProperties {
+  switch (value) {
+    case 'compliant':      return { background: 'rgba(21,128,61,0.08)',  border: '1px solid rgba(21,128,61,0.22)',  color: '#15803d' }
+    case 'in_progress':    return { background: 'rgba(180,83,9,0.08)',   border: '1px solid rgba(180,83,9,0.22)',   color: '#b45309' }
+    default:               return { background: 'var(--surface-2)',      border: '1px solid var(--border)',         color: 'var(--text-muted)' }
+  }
+}
+
+const topBarStyle: React.CSSProperties = { background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0 }
+const dividerStyle: React.CSSProperties = { width: '1px', height: '16px', background: 'var(--border)' }
+const clauseBadgeStyle: React.CSSProperties = {
+  fontSize: '11px', fontWeight: 700,
+  background: 'var(--orange-soft)', border: '1px solid var(--orange-border)',
+  color: 'var(--orange-b)', padding: '2px 8px', borderRadius: '5px',
+  fontFamily: 'Epilogue, sans-serif',
 }
 
 export default function ProjectPage() {
@@ -51,7 +64,6 @@ export default function ProjectPage() {
   const [splitView, setSplitView] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // Workbook state
   const [workbookEntries, setWorkbookEntries] = useState<WorkbookEntry[]>([])
   const [showAddEntry, setShowAddEntry] = useState(false)
   const [editingEntry, setEditingEntry] = useState<WorkbookEntry | null>(null)
@@ -60,11 +72,9 @@ export default function ProjectPage() {
   const [loadingImport, setLoadingImport] = useState(false)
   const [savingEntry, setSavingEntry] = useState(false)
   const [newEntry, setNewEntry] = useState<WorkbookEntry>({
-    clause: '', title: '', requirement: '',
-    status: 'not_started', evidence: '', notes: ''
+    clause: '', title: '', requirement: '', status: 'not_started', evidence: '', notes: ''
   })
 
-  // Checklist state
   const [checklist, setChecklist] = useState<any[]>([])
   const [generatingChecklist, setGeneratingChecklist] = useState(false)
 
@@ -72,10 +82,7 @@ export default function ProjectPage() {
   const isPaidPlan = userPlan !== 'explorer'
 
   useEffect(() => {
-    loadProject()
-    loadWorkbook()
-    loadChecklist()
-    loadConversation()
+    loadProject(); loadWorkbook(); loadChecklist(); loadConversation()
     supabase.auth.getUser().then(async ({ data }) => {
       if (data.user) {
         setUserId(data.user.id)
@@ -91,7 +98,6 @@ export default function ProjectPage() {
     const { data } = await supabase.from('projects').select('*').eq('id', id).single()
     setProject(data)
   }
-
   async function loadConversation() {
     const { data } = await supabase.from('query_history').select('*').eq('project_id', id).order('created_at', { ascending: true }).limit(50)
     if (data && data.length > 0) {
@@ -101,17 +107,14 @@ export default function ProjectPage() {
       ]))
     }
   }
-
   async function loadWorkbook() {
     const { data } = await supabase.from('workbook_entries').select('*').eq('project_id', id).order('clause')
     setWorkbookEntries(data || [])
   }
-
   async function loadChecklist() {
     const { data } = await supabase.from('checklist_items').select('*').eq('project_id', id).order('created_at')
     setChecklist(data || [])
   }
-
   async function loadDocumentUrl() {
     if (documentUrl) return
     setLoadingPdf(true)
@@ -128,16 +131,12 @@ export default function ProjectPage() {
     setLoadingPdf(false)
   }
 
-  // ── Workbook functions ──────────────────────────────────────
-
   async function saveEntry() {
     if (!newEntry.clause || !newEntry.requirement) return
     setSavingEntry(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
     const record = { ...newEntry, project_id: id, user_id: user.id }
-
     if (editingEntry?.id) {
       const { data } = await supabase.from('workbook_entries').update(record).eq('id', editingEntry.id).select().single()
       setWorkbookEntries(e => e.map(x => x.id === editingEntry.id ? data : x))
@@ -145,33 +144,23 @@ export default function ProjectPage() {
       const { data } = await supabase.from('workbook_entries').insert(record).select().single()
       setWorkbookEntries(e => [...e, data])
     }
-
     setNewEntry({ clause: '', title: '', requirement: '', status: 'not_started', evidence: '', notes: '' })
-    setShowAddEntry(false)
-    setEditingEntry(null)
-    setSavingEntry(false)
+    setShowAddEntry(false); setEditingEntry(null); setSavingEntry(false)
   }
-
   async function deleteEntry(entryId: string) {
     if (!confirm('Delete this entry?')) return
     await supabase.from('workbook_entries').delete().eq('id', entryId)
     setWorkbookEntries(e => e.filter(x => x.id !== entryId))
   }
-
   async function updateEntryField(entryId: string, field: string, value: string) {
     await supabase.from('workbook_entries').update({ [field]: value }).eq('id', entryId)
     setWorkbookEntries(e => e.map(x => x.id === entryId ? { ...x, [field]: value } : x))
   }
-
   function startEdit(entry: WorkbookEntry) {
-    setEditingEntry(entry)
-    setNewEntry({ ...entry })
-    setShowAddEntry(true)
+    setEditingEntry(entry); setNewEntry({ ...entry }); setShowAddEntry(true)
   }
-
   async function loadImportSuggestions() {
-    setLoadingImport(true)
-    setShowImport(true)
+    setLoadingImport(true); setShowImport(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const res = await fetch('/api/workbook/generate', {
@@ -179,42 +168,29 @@ export default function ProjectPage() {
         body: JSON.stringify({ projectId: id, userId: user?.id })
       })
       const data = await res.json()
-      if (data.suggestions) {
-        setImportSuggestions(data.suggestions.map((s: any) => ({ ...s, selected: true })))
-      }
-    } catch (e: any) {
-      alert('Failed to load suggestions: ' + e.message)
-    }
+      if (data.suggestions) setImportSuggestions(data.suggestions.map((s: any) => ({ ...s, selected: true })))
+    } catch (e: any) { alert('Failed to load suggestions: ' + e.message) }
     setLoadingImport(false)
   }
-
   async function importSelected() {
     const selected = importSuggestions.filter(s => s.selected)
     if (!selected.length) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
     const records = selected.map(s => ({
-      project_id: id, user_id: user.id,
-      clause: s.clause, title: s.title, requirement: s.requirement,
-      status: 'not_started', evidence: '', notes: '',
+      project_id: id, user_id: user.id, clause: s.clause, title: s.title,
+      requirement: s.requirement, status: 'not_started', evidence: '', notes: '',
       created_at: new Date().toISOString()
     }))
-
     const { data } = await supabase.from('workbook_entries').insert(records).select()
     setWorkbookEntries(e => [...e, ...(data || [])])
-    setShowImport(false)
-    setImportSuggestions([])
+    setShowImport(false); setImportSuggestions([])
   }
-
-  // ── Query functions ──────────────────────────────────────
 
   async function sendQuery() {
     if (!input.trim() || loading) return
     const question = input.trim()
-    setInput('')
-    setMessages(m => [...m, { role: 'user', content: question }])
-    setLoading(true)
+    setInput(''); setMessages(m => [...m, { role: 'user', content: question }]); setLoading(true)
     try {
       const res = await fetch('/api/query', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -251,14 +227,9 @@ export default function ProjectPage() {
         body: JSON.stringify({ projectId: id, userId: user?.id })
       })
       const data = await res.json()
-      if (data.items) {
-        setChecklist(data.items)
-      } else {
-        alert('Failed to generate checklist: ' + (data.error || 'Unknown error'))
-      }
-    } catch (e: any) {
-      alert('Error: ' + e.message)
-    }
+      if (data.items) setChecklist(data.items)
+      else alert('Failed to generate checklist: ' + (data.error || 'Unknown error'))
+    } catch (e: any) { alert('Error: ' + e.message) }
     setGeneratingChecklist(false)
   }
 
@@ -279,218 +250,217 @@ export default function ProjectPage() {
   const naCount = workbookEntries.filter(e => e.status === 'not_applicable').length
   const progressCount = completedCount + naCount
 
+  const Spinner = ({ size = 18 }: { size?: number }) => (
+    <span style={{ width: size, height: size, borderRadius: '50%', border: '2px solid var(--orange-border)', borderTopColor: 'var(--orange)', display: 'inline-block', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+  )
+
   if (!project) return (
-    <div className="p-8 flex items-center justify-center min-h-screen">
-      <div className="w-6 h-6 rounded-full border-2 border-electric border-t-transparent animate-spin" />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: '12px' }}>
+      <Spinner size={24} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 
-  // ── Split view ──────────────────────────────────────────────
+  // ── Split view ───────────────────────────────────────────────
   if (splitView) {
     return (
-      <div className="flex flex-col h-screen">
-        <div className="flex items-center gap-4 px-6 py-4 border-b border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
-          <Link href="/dashboard/projects" className="text-slate-ai hover:text-white transition-colors text-sm">← Projects</Link>
-          <div className="w-px h-4 bg-white/10" />
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <div style={{ ...topBarStyle, display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 24px' }}>
+          <Link href="/dashboard/projects" style={{ fontSize: '13px', color: 'var(--text-muted)', textDecoration: 'none' }}>← Projects</Link>
+          <div style={dividerStyle} />
           <div>
-            <h1 className="font-display font-black text-base tracking-tight leading-none">{project.name}</h1>
-            <p className="text-xs text-slate-ai mt-0.5">{project.file_name}</p>
+            <h1 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '15px', letterSpacing: '-0.02em', color: 'var(--text)', lineHeight: 1 }}>{project.name}</h1>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{project.file_name}</p>
           </div>
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-xs text-emerald-400/70 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Split view
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '12px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#15803d' }} />Split view
             </span>
             <button onClick={() => setSplitView(false)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-slate-ai hover:text-white hover:border-white/20 transition-all">
+              style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
               Exit split view
             </button>
           </div>
         </div>
-        <div className="flex flex-1 overflow-hidden">
-          <div className="w-1/2 border-r border-white/[0.07] flex flex-col">
-            <div className="px-4 py-2 border-b border-white/[0.07]">
-              <span className="text-xs font-medium text-slate-ai">📄 {project.file_name}</span>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          <div style={{ width: '50%', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>📄 {project.file_name}</span>
             </div>
-            <div className="flex-1 overflow-hidden bg-[#0a1628]">
+            <div style={{ flex: 1, overflow: 'hidden', background: 'var(--surface-2)' }}>
               {documentUrl
-                ? <iframe src={documentUrl} className="w-full h-full border-0" title="Document viewer" />
-                : <div className="flex items-center justify-center h-full">
-                    <button onClick={loadDocumentUrl} disabled={loadingPdf} className="btn-primary flex items-center gap-2">
-                      {loadingPdf ? <><span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />Loading…</> : '📄 Load document'}
+                ? <iframe src={documentUrl} style={{ width: '100%', height: '100%', border: 'none' }} title="Document viewer" />
+                : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <button onClick={loadDocumentUrl} disabled={loadingPdf} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {loadingPdf ? <><Spinner size={14} />Loading…</> : '📄 Load document'}
                     </button>
                   </div>
               }
             </div>
           </div>
-          <div className="w-1/2 flex flex-col">
-            <div className="flex-1 overflow-auto p-5 flex flex-col gap-4">
+          <div style={{ width: '50%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {messages.map((m, i) => (
-                <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {m.role === 'assistant' && <div className="w-7 h-7 rounded-lg bg-electric/15 border border-electric/20 flex items-center justify-center text-xs flex-shrink-0 mt-1">🤖</div>}
-                  <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap
-                    ${m.role === 'user' ? 'bg-electric text-white rounded-tr-sm' : 'bg-white/[0.04] border border-white/[0.07] text-[#aac4e0] rounded-tl-sm'}`}>
+                <div key={i} style={{ display: 'flex', gap: '10px', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  {m.role === 'assistant' && <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--orange-soft)', border: '1px solid var(--orange-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', flexShrink: 0, marginTop: '2px' }}>🤖</div>}
+                  <div style={{ maxWidth: '85%', background: m.role === 'user' ? 'var(--orange)' : 'var(--surface)', border: m.role === 'user' ? 'none' : '1px solid var(--border)', borderRadius: m.role === 'user' ? '12px 12px 3px 12px' : '12px 12px 12px 3px', padding: '10px 14px', fontSize: '13px', lineHeight: 1.6, color: m.role === 'user' ? '#fff' : 'var(--text)', whiteSpace: 'pre-wrap' }}>
                     {m.content}
                   </div>
                 </div>
               ))}
               {loading && (
-                <div className="flex gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-electric/15 border border-electric/20 flex items-center justify-center text-xs">🤖</div>
-                  <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl rounded-tl-sm px-4 py-3 flex gap-1.5 items-center">
-                    <span className="w-1.5 h-1.5 rounded-full bg-electric animate-bounce" style={{animationDelay:'0ms'}} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-electric animate-bounce" style={{animationDelay:'150ms'}} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-electric animate-bounce" style={{animationDelay:'300ms'}} />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--orange-soft)', border: '1px solid var(--orange-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>🤖</div>
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px 12px 12px 3px', padding: '10px 14px', display: 'flex', gap: '5px', alignItems: 'center' }}>
+                    {[0,150,300].map(d => <span key={d} style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--orange)', display: 'inline-block', animation: `bounce 1s ${d}ms infinite` }} />)}
                   </div>
                 </div>
               )}
               <div ref={bottomRef} />
             </div>
-            <div className="p-4 border-t border-white/[0.07] flex gap-2" style={{background:'#0e2245'}}>
-              <input className="input flex-1 text-sm" placeholder="Ask about your standard…"
+            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: '8px' }}>
+              <input className="input" style={{ flex: 1, fontSize: '13px' }} placeholder="Ask about your standard…"
                 value={input} onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendQuery()} />
-              <button onClick={sendQuery} disabled={!input.trim() || loading} className="btn-primary px-5 text-sm">Send</button>
+              <button onClick={sendQuery} disabled={!input.trim() || loading} className="btn-primary" style={{ padding: '0 20px', fontSize: '13px' }}>Send</button>
             </div>
           </div>
         </div>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes bounce{0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-5px)}}`}</style>
       </div>
     )
   }
 
-  // ── Main layout ─────────────────────────────────────────────
+  // ── Main layout ──────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen">
-      <div className="flex items-center gap-4 px-8 py-5 border-b border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
-        <Link href="/dashboard/projects" className="text-slate-ai hover:text-white transition-colors text-sm">← Projects</Link>
-        <div className="w-px h-4 bg-white/10" />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+
+      <div style={{ ...topBarStyle, display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 32px' }}>
+        <Link href="/dashboard/projects" style={{ fontSize: '13px', color: 'var(--text-muted)', textDecoration: 'none' }}>← Projects</Link>
+        <div style={dividerStyle} />
         <div>
-          <h1 className="font-display font-black text-lg tracking-tight leading-none">{project.name}</h1>
-          <p className="text-xs text-slate-ai mt-0.5">{project.file_name}</p>
+          <h1 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '17px', letterSpacing: '-0.02em', color: 'var(--text)', lineHeight: 1 }}>{project.name}</h1>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>{project.file_name}</p>
         </div>
-        <span className="badge badge-blue text-[10px] ml-auto">{project.standard_name}</span>
+        <span style={{ ...clauseBadgeStyle, marginLeft: 'auto' }}>{project.standard_name}</span>
       </div>
 
-      <div className="flex gap-1 px-8 py-3 border-b border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
+      <div style={{ ...topBarStyle, display: 'flex', gap: '4px', padding: '8px 32px' }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => { setTab(t.key); if (t.key === 'document') loadDocumentUrl() }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-              ${tab === t.key ? 'bg-electric/10 text-electric-bright border border-electric/20' : 'text-slate-ai hover:text-white hover:bg-white/[0.04]'}`}>
+            style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', border: tab === t.key ? '1px solid var(--orange-border)' : '1px solid transparent', background: tab === t.key ? 'var(--orange-soft)' : 'transparent', color: tab === t.key ? 'var(--orange-b)' : 'var(--text-muted)', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s' }}>
             <span>{t.icon}</span>{t.label}
           </button>
         ))}
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div style={{ flex: 1, overflow: 'auto' }}>
 
-        {/* ── AI QUERY TAB ── */}
+        {/* ── AI QUERY ── */}
         {tab === 'query' && (
-          <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-auto p-8 flex flex-col gap-5">
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {messages.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
-                  <div className="text-4xl">🤖</div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '40px' }}>🤖</div>
                   <div>
-                    <div className="font-display font-bold text-xl mb-2">Ask anything about {project.name}</div>
-                    <p className="text-sm text-slate-ai max-w-sm">Ask questions in plain English. AIstands answers from your document.</p>
+                    <div style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '20px', color: 'var(--text)', marginBottom: '8px', letterSpacing: '-0.02em' }}>Ask anything about {project.name}</div>
+                    <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '360px', fontWeight: 300 }}>Ask questions in plain English. Get answers directly from your document.</p>
                   </div>
                   {isPdf && (
                     <button onClick={() => { setSplitView(true); loadDocumentUrl() }}
-                      className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border border-electric/20 text-electric-bright hover:bg-electric/10 transition-all">
-                      <span>⬛</span> Open split view — read & ask side by side
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', padding: '9px 18px', borderRadius: '9px', border: '1px solid var(--orange-border)', color: 'var(--orange)', background: 'var(--orange-soft)', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                      ⬛ Open split view — read &amp; ask side by side
                     </button>
                   )}
-                  <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', maxWidth: '520px' }}>
                     {["What are the main requirements?","Which clauses are mandatory?","What evidence do I need?","Summarise clause 7","How do auditors assess this?"].map(q => (
                       <button key={q} onClick={() => setInput(q)}
-                        className="text-sm px-4 py-2 rounded-lg border border-white/10 text-slate-ai hover:border-electric/30 hover:text-white transition-all">{q}</button>
+                        style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)', color: 'var(--text-muted)', background: 'var(--surface)', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--orange-border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--orange)' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)' }}>
+                        {q}
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
               {messages.map((m, i) => (
-                <div key={i} className={`flex gap-4 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {m.role === 'assistant' && <div className="w-8 h-8 rounded-lg bg-electric/15 border border-electric/20 flex items-center justify-center text-sm flex-shrink-0 mt-1">🤖</div>}
-                  <div className="max-w-[80%] flex flex-col gap-1">
-                    {m.role === 'assistant' && m.webSearch && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-emerald-400/70 mb-1"><span>🌐</span> Web sources included</div>
-                    )}
-                    <div className={`rounded-2xl px-5 py-3.5 text-sm leading-relaxed whitespace-pre-wrap
-                      ${m.role === 'user' ? 'bg-electric text-white rounded-tr-sm' : 'bg-white/[0.04] border border-white/[0.07] text-[#aac4e0] rounded-tl-sm'}`}>
+                <div key={i} style={{ display: 'flex', gap: '14px', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  {m.role === 'assistant' && <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: 'var(--orange-soft)', border: '1px solid var(--orange-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0, marginTop: '2px' }}>🤖</div>}
+                  <div style={{ maxWidth: '80%', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {m.role === 'assistant' && m.webSearch && <div style={{ fontSize: '11px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>🌐 Web sources included</div>}
+                    <div style={{ background: m.role === 'user' ? 'var(--orange)' : 'var(--surface)', border: m.role === 'user' ? 'none' : '1px solid var(--border)', borderRadius: m.role === 'user' ? '14px 14px 3px 14px' : '14px 14px 14px 3px', padding: '12px 18px', fontSize: '14px', lineHeight: 1.65, color: m.role === 'user' ? '#fff' : 'var(--text)', whiteSpace: 'pre-wrap' }}>
                       {m.content}
                     </div>
                   </div>
                 </div>
               ))}
               {loading && (
-                <div className="flex gap-4">
-                  <div className="w-8 h-8 rounded-lg bg-electric/15 border border-electric/20 flex items-center justify-center text-sm flex-shrink-0">🤖</div>
-                  <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl rounded-tl-sm px-5 py-3.5 flex items-center gap-2">
-                    {useWebSearch && <span className="text-xs text-emerald-400/70 mr-1">🌐 Searching web…</span>}
-                    <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'0ms'}} />
-                    <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'150ms'}} />
-                    <span className="w-2 h-2 rounded-full bg-electric animate-bounce" style={{animationDelay:'300ms'}} />
+                <div style={{ display: 'flex', gap: '14px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: 'var(--orange-soft)', border: '1px solid var(--orange-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>🤖</div>
+                  <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px 14px 14px 3px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {useWebSearch && <span style={{ fontSize: '12px', color: '#15803d', marginRight: '4px' }}>🌐 Searching web…</span>}
+                    {[0,150,300].map(d => <span key={d} style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--orange)', display: 'inline-block', animation: `bounce 1s ${d}ms infinite` }} />)}
                   </div>
                 </div>
               )}
               <div ref={bottomRef} />
             </div>
-            <div className="p-6 border-t border-white/[0.07] flex-shrink-0" style={{background:'#0e2245'}}>
-              <div className="flex items-center gap-3 mb-3">
+            <div style={{ padding: '20px 32px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                 <button onClick={() => setUseWebSearch(!useWebSearch)}
-                  className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg border transition-all
-                    ${useWebSearch ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400' : 'bg-white/[0.04] border-white/10 text-slate-ai hover:border-white/20 hover:text-white'}`}>
-                  <span>🌐</span>
-                  <span>{useWebSearch ? 'Web search ON' : 'Web search OFF'}</span>
-                  <span className={`w-7 h-4 rounded-full transition-all relative ${useWebSearch ? 'bg-emerald-400' : 'bg-white/20'}`}>
-                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${useWebSearch ? 'left-3.5' : 'left-0.5'}`} />
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 500, padding: '6px 12px', borderRadius: '8px', border: useWebSearch ? '1px solid rgba(21,128,61,0.25)' : '1px solid var(--border)', background: useWebSearch ? 'rgba(21,128,61,0.07)' : 'var(--surface-2)', color: useWebSearch ? '#15803d' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                  🌐 <span>{useWebSearch ? 'Web search ON' : 'Web search OFF'}</span>
+                  <span style={{ width: '26px', height: '14px', borderRadius: '7px', background: useWebSearch ? '#15803d' : 'var(--border-2)', position: 'relative', display: 'inline-block', transition: 'background 0.2s' }}>
+                    <span style={{ position: 'absolute', top: '2px', width: '10px', height: '10px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', left: useWebSearch ? '14px' : '2px' }} />
                   </span>
                 </button>
-                <span className="text-xs text-slate-ai">{useWebSearch ? 'Answers combine your document + live web sources' : 'Answers from your document only'}</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{useWebSearch ? 'Answers combine your document + live web sources' : 'Answers from your document only'}</span>
                 {isPdf && messages.length > 0 && (
                   <button onClick={() => { setSplitView(true); loadDocumentUrl() }}
-                    className="ml-auto text-xs px-3 py-1.5 rounded-lg border border-white/10 text-slate-ai hover:border-electric/30 hover:text-electric-bright transition-all flex items-center gap-1.5">
-                    <span>⬛</span> Split view
+                    style={{ marginLeft: 'auto', fontSize: '12px', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)', color: 'var(--text-muted)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'DM Sans, sans-serif' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--orange-border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--orange)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)' }}>
+                    ⬛ Split view
                   </button>
                 )}
               </div>
-              <div className="flex gap-3">
-                <input className="input flex-1" placeholder="Ask a question about your standard…"
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input className="input" style={{ flex: 1 }} placeholder="Ask a question about your standard…"
                   value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendQuery()} />
-                <button onClick={sendQuery} disabled={!input.trim() || loading} className="btn-primary px-6">Send</button>
+                <button onClick={sendQuery} disabled={!input.trim() || loading} className="btn-primary" style={{ padding: '0 28px' }}>Send</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── DOCUMENT TAB ── */}
+        {/* ── DOCUMENT ── */}
         {tab === 'document' && (
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between px-8 py-3 border-b border-white/[0.07] flex-shrink-0">
-              <span className="text-sm text-slate-ai">📄 {project.file_name}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 32px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>📄 {project.file_name}</span>
               {isPdf && (
                 <button onClick={() => { setSplitView(true); loadDocumentUrl() }}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-electric/20 text-electric-bright hover:bg-electric/10 transition-all flex items-center gap-1.5">
-                  <span>⬛</span> Open with AI chat
+                  style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--orange-border)', color: 'var(--orange)', background: 'var(--orange-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'DM Sans, sans-serif' }}>
+                  ⬛ Open with AI chat
                 </button>
               )}
             </div>
-            <div className="flex-1 overflow-hidden bg-[#0a1628]">
+            <div style={{ flex: 1, overflow: 'hidden', background: 'var(--surface-2)' }}>
               {loadingPdf
-                ? <div className="flex items-center justify-center h-full gap-3">
-                    <div className="w-5 h-5 rounded-full border-2 border-electric border-t-transparent animate-spin" />
-                    <span className="text-sm text-slate-ai">Loading document…</span>
-                  </div>
+                ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px' }}><Spinner /><span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Loading document…</span></div>
                 : documentUrl
                   ? isPdf
-                    ? <iframe src={documentUrl} className="w-full h-full border-0" title="Document viewer" />
-                    : <div className="flex items-center justify-center h-full flex-col gap-4">
-                        <p className="text-sm text-slate-ai">Preview not available for this file type.</p>
+                    ? <iframe src={documentUrl} style={{ width: '100%', height: '100%', border: 'none' }} title="Document viewer" />
+                    : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: '16px' }}>
+                        <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Preview not available for this file type.</p>
                         <a href={documentUrl} target="_blank" rel="noopener noreferrer" className="btn-primary">Download file</a>
                       </div>
-                  : <div className="flex items-center justify-center h-full flex-col gap-4">
-                      <div className="text-4xl">📄</div>
-                      <p className="text-sm text-slate-ai">Click below to load your document</p>
+                  : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ fontSize: '40px' }}>📄</div>
+                      <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Click below to load your document</p>
                       <button onClick={loadDocumentUrl} className="btn-primary">Load document</button>
                     </div>
               }
@@ -498,121 +468,78 @@ export default function ProjectPage() {
           </div>
         )}
 
-        {/* ── WORKBOOK TAB ── */}
+        {/* ── WORKBOOK ── */}
         {tab === 'workbook' && (
-          <div className="p-8">
-
-            {/* Header */}
-            <div className="flex justify-between items-start mb-6">
+          <div style={{ padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
               <div>
-                <h2 className="font-display font-bold text-xl tracking-tight">Workbook</h2>
-                <p className="text-sm text-slate-ai mt-1">
-                  {workbookEntries.length > 0
-                    ? `${progressCount} of ${workbookEntries.length} clauses addressed`
-                    : 'Build your compliance workbook clause by clause'}
-                </p>
+                <h2 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '22px', letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: '4px' }}>Workbook</h2>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 300 }}>{workbookEntries.length > 0 ? `${progressCount} of ${workbookEntries.length} clauses addressed` : 'Build your compliance workbook clause by clause'}</p>
               </div>
-              <div className="flex gap-2">
-                <button onClick={loadImportSuggestions}
-                  className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border border-electric/20 text-electric-bright hover:bg-electric/10 transition-all">
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={loadImportSuggestions} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', padding: '9px 16px', borderRadius: '8px', border: '1px solid var(--orange-border)', color: 'var(--orange)', background: 'var(--orange-soft)', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
                   ✨ Import from AI
                 </button>
-                <button onClick={() => { setEditingEntry(null); setNewEntry({ clause: '', title: '', requirement: '', status: 'not_started', evidence: '', notes: '' }); setShowAddEntry(true) }}
-                  className="btn-primary">
+                <button onClick={() => { setEditingEntry(null); setNewEntry({ clause: '', title: '', requirement: '', status: 'not_started', evidence: '', notes: '' }); setShowAddEntry(true) }} className="btn-primary">
                   + Add entry
                 </button>
               </div>
             </div>
 
-            {/* Progress bar */}
             {workbookEntries.length > 0 && (
-              <div className="mb-6">
-                <div className="flex justify-between text-xs text-slate-ai mb-2">
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
                   <span>{completedCount} compliant · {workbookEntries.filter(e=>e.status==='in_progress').length} in progress · {workbookEntries.filter(e=>e.status==='not_started').length} not started</span>
                   <span>{workbookEntries.length} total entries</span>
                 </div>
-                <div className="h-2 bg-white/[0.07] rounded-full overflow-hidden flex gap-0.5">
-                  <div className="h-full bg-emerald-400 rounded-full transition-all"
-                    style={{width:`${(completedCount/workbookEntries.length)*100}%`}} />
-                  <div className="h-full bg-amber-400 rounded-full transition-all"
-                    style={{width:`${(workbookEntries.filter(e=>e.status==='in_progress').length/workbookEntries.length)*100}%`}} />
+                <div style={{ height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
+                  <div style={{ height: '100%', background: '#15803d', width: `${(completedCount/workbookEntries.length)*100}%`, transition: 'width 0.3s' }} />
+                  <div style={{ height: '100%', background: '#b45309', width: `${(workbookEntries.filter(e=>e.status==='in_progress').length/workbookEntries.length)*100}%`, transition: 'width 0.3s' }} />
                 </div>
               </div>
             )}
 
-            {/* Empty state */}
             {workbookEntries.length === 0 && (
-              <div className="card rounded-2xl p-16 text-center mb-6">
-                <div className="text-4xl mb-4">🗒</div>
-                <div className="font-display font-bold text-xl mb-3">Your workbook is empty</div>
-                <p className="text-sm text-slate-ai mb-2 max-w-sm mx-auto">Add entries manually for full control, or let AI suggest entries from your document that you can review and approve.</p>
-                <div className="flex gap-3 justify-center mt-6">
-                  <button onClick={loadImportSuggestions}
-                    className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border border-electric/20 text-electric-bright hover:bg-electric/10 transition-all">
-                    ✨ Import from AI
-                  </button>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '64px', textAlign: 'center', marginBottom: '24px' }}>
+                <div style={{ fontSize: '40px', marginBottom: '16px' }}>🗒</div>
+                <div style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 700, fontSize: '20px', color: 'var(--text)', marginBottom: '8px' }}>Your workbook is empty</div>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto 24px', fontWeight: 300, lineHeight: 1.6 }}>Add entries manually for full control, or let AI suggest entries from your document that you can review and approve.</p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                  <button onClick={loadImportSuggestions} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', padding: '9px 16px', borderRadius: '8px', border: '1px solid var(--orange-border)', color: 'var(--orange)', background: 'var(--orange-soft)', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>✨ Import from AI</button>
                   <button onClick={() => setShowAddEntry(true)} className="btn-primary">+ Add entry manually</button>
                 </div>
               </div>
             )}
 
-            {/* Entries table */}
             {workbookEntries.length > 0 && (
-              <div className="card rounded-2xl overflow-hidden">
-                {/* Table header */}
-                <div className="grid grid-cols-[80px_1fr_160px_1fr] gap-4 px-6 py-3 border-b border-white/[0.07] text-xs font-semibold text-slate-ai uppercase tracking-wider">
-                  <span>Clause</span>
-                  <span>Requirement</span>
-                  <span>Status</span>
-                  <span>Notes / Evidence</span>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 160px 1fr', gap: '16px', padding: '12px 24px', borderBottom: '1px solid var(--border)', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Epilogue, sans-serif' }}>
+                  <span>Clause</span><span>Requirement</span><span>Status</span><span>Notes / Evidence</span>
                 </div>
                 {workbookEntries.map((entry, i) => (
                   <div key={entry.id}
-                    className={`grid grid-cols-[80px_1fr_160px_1fr] gap-4 px-6 py-4 items-start
-                      ${i !== workbookEntries.length - 1 ? 'border-b border-white/[0.07]' : ''}
-                      hover:bg-white/[0.02] transition-colors group`}>
-
-                    {/* Clause */}
+                    style={{ display: 'grid', gridTemplateColumns: '80px 1fr 160px 1fr', gap: '16px', padding: '16px 24px', alignItems: 'start', borderBottom: i !== workbookEntries.length - 1 ? '1px solid var(--border)' : 'none', transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}>
+                    <div style={{ paddingTop: '2px' }}><span style={clauseBadgeStyle}>{entry.clause}</span></div>
                     <div>
-                      <span className="text-xs font-semibold bg-electric/10 text-electric-bright px-2 py-1 rounded border border-electric/15">
-                        {entry.clause}
-                      </span>
+                      {entry.title && <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>{entry.title}</div>}
+                      <p style={{ fontSize: '13px', color: 'var(--text-mid)', lineHeight: 1.55 }}>{entry.requirement}</p>
                     </div>
-
-                    {/* Requirement */}
-                    <div>
-                      {entry.title && <div className="text-xs font-semibold text-white mb-1">{entry.title}</div>}
-                      <p className="text-sm text-[#aac4e0] leading-relaxed">{entry.requirement}</p>
-                    </div>
-
-                    {/* Status dropdown */}
-                    <div>
-                      <select
-                        value={entry.status}
-                        onChange={e => updateEntryField(entry.id!, 'status', e.target.value)}
-                        className={`text-xs px-3 py-1.5 rounded-lg border appearance-none cursor-pointer w-full
-                          ${statusStyle(entry.status).bg} ${statusStyle(entry.status).border} ${statusStyle(entry.status).color}`}>
-                        {STATUS_OPTIONS.map(s => (
-                          <option key={s.value} value={s.value}>{s.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Notes */}
-                    <div className="flex items-start gap-2">
-                      <textarea
-                        className="input text-xs flex-1 py-1.5 resize-none overflow-hidden leading-relaxed"
-                        placeholder="Add notes or evidence reference…"
-                        defaultValue={entry.notes}
-                        rows={1}
-                        onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = t.scrollHeight + "px" }}
-                        onBlur={e => updateEntryField(entry.id!, "notes", e.target.value)}
-                      />
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        <button onClick={() => startEdit(entry)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-slate-ai hover:text-white transition-all text-xs">✎</button>
-                        <button onClick={() => deleteEntry(entry.id!)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-400/10 text-slate-ai hover:text-red-400 transition-all text-xs">✕</button>
+                    <select value={entry.status} onChange={e => updateEntryField(entry.id!, 'status', e.target.value)}
+                      style={{ ...statusSelectStyle(entry.status), fontSize: '12px', padding: '6px 10px', borderRadius: '7px', appearance: 'none', cursor: 'pointer', width: '100%', fontWeight: 600, fontFamily: 'DM Sans, sans-serif' }}>
+                      {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <textarea className="input" style={{ fontSize: '12px', flex: 1, padding: '6px 10px', resize: 'none', overflow: 'hidden', lineHeight: 1.55 }}
+                        placeholder="Add notes or evidence reference…" defaultValue={entry.notes} rows={1}
+                        onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px' }}
+                        onBlur={e => updateEntryField(entry.id!, 'notes', e.target.value)} />
+                      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                        <button onClick={() => startEdit(entry)} style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '7px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px' }}>✎</button>
+                        <button onClick={() => deleteEntry(entry.id!)} style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '7px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#b91c1c'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(185,28,28,0.25)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)' }}>✕</button>
                       </div>
                     </div>
                   </div>
@@ -620,49 +547,30 @@ export default function ProjectPage() {
               </div>
             )}
 
-            {/* Add / Edit entry modal */}
+            {/* Add/Edit modal */}
             {showAddEntry && (
-              <div className="fixed inset-0 flex items-center justify-center z-50 px-4" style={{background:'rgba(11,30,62,0.9)',backdropFilter:'blur(8px)'}}>
-                <div className="w-full max-w-[560px] rounded-2xl p-8" style={{background:'#132952',border:'1px solid rgba(255,255,255,0.1)'}}>
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-display font-black text-lg">{editingEntry ? 'Edit entry' : 'Add workbook entry'}</h3>
-                    <button onClick={() => { setShowAddEntry(false); setEditingEntry(null) }}
-                      className="text-slate-ai hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10">✕</button>
+              <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 16px', background: 'rgba(11,30,62,0.6)', backdropFilter: 'blur(8px)' }}>
+                <div style={{ width: '100%', maxWidth: '560px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '20px', padding: '32px', boxShadow: 'var(--shadow-lg)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h3 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '18px', color: 'var(--text)', letterSpacing: '-0.02em' }}>{editingEntry ? 'Edit entry' : 'Add workbook entry'}</h3>
+                    <button onClick={() => { setShowAddEntry(false); setEditingEntry(null) }} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
                   </div>
-                  <div className="flex flex-col gap-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="label">Clause number</label>
-                        <input className="input" placeholder="e.g. 4.1, B.10" value={newEntry.clause}
-                          onChange={e => setNewEntry(x => ({...x, clause: e.target.value}))} />
-                      </div>
-                      <div>
-                        <label className="label">Title</label>
-                        <input className="input" placeholder="Clause title" value={newEntry.title}
-                          onChange={e => setNewEntry(x => ({...x, title: e.target.value}))} />
-                      </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div><label className="label">Clause number</label><input className="input" placeholder="e.g. 4.1, B.10" value={newEntry.clause} onChange={e => setNewEntry(x => ({...x, clause: e.target.value}))} /></div>
+                      <div><label className="label">Title</label><input className="input" placeholder="Clause title" value={newEntry.title} onChange={e => setNewEntry(x => ({...x, title: e.target.value}))} /></div>
                     </div>
-                    <div>
-                      <label className="label">Requirement</label>
-                      <textarea className="input min-h-[80px] resize-none" placeholder="The requirement text…"
-                        value={newEntry.requirement} onChange={e => setNewEntry(x => ({...x, requirement: e.target.value}))} />
-                    </div>
-                    <div>
-                      <label className="label">Status</label>
-                      <select className="input" value={newEntry.status}
-                        onChange={e => setNewEntry(x => ({...x, status: e.target.value as any}))}>
+                    <div><label className="label">Requirement</label><textarea className="input" style={{ minHeight: '80px', resize: 'none' }} placeholder="The requirement text…" value={newEntry.requirement} onChange={e => setNewEntry(x => ({...x, requirement: e.target.value}))} /></div>
+                    <div><label className="label">Status</label>
+                      <select className="input" value={newEntry.status} onChange={e => setNewEntry(x => ({...x, status: e.target.value as any}))}>
                         {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                       </select>
                     </div>
-                    <div>
-                      <label className="label">Notes / Evidence</label>
-                      <textarea className="input min-h-[60px] resize-none" placeholder="Evidence reference, notes, action owner…"
-                        value={newEntry.notes} onChange={e => setNewEntry(x => ({...x, notes: e.target.value}))} />
-                    </div>
+                    <div><label className="label">Notes / Evidence</label><textarea className="input" style={{ minHeight: '60px', resize: 'none' }} placeholder="Evidence reference, notes, action owner…" value={newEntry.notes} onChange={e => setNewEntry(x => ({...x, notes: e.target.value}))} /></div>
                   </div>
-                  <div className="flex gap-3 mt-6">
-                    <button onClick={() => { setShowAddEntry(false); setEditingEntry(null) }} className="btn-ghost flex-1">Cancel</button>
-                    <button onClick={saveEntry} disabled={!newEntry.clause || !newEntry.requirement || savingEntry} className="btn-primary flex-1">
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
+                    <button onClick={() => { setShowAddEntry(false); setEditingEntry(null) }} className="btn-ghost" style={{ flex: 1 }}>Cancel</button>
+                    <button onClick={saveEntry} disabled={!newEntry.clause || !newEntry.requirement || savingEntry} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
                       {savingEntry ? 'Saving…' : editingEntry ? 'Save changes' : 'Add entry'}
                     </button>
                   </div>
@@ -672,56 +580,46 @@ export default function ProjectPage() {
 
             {/* AI Import modal */}
             {showImport && (
-              <div className="fixed inset-0 flex items-center justify-center z-50 px-4" style={{background:'rgba(11,30,62,0.9)',backdropFilter:'blur(8px)'}}>
-                <div className="w-full max-w-[700px] rounded-2xl flex flex-col max-h-[80vh]" style={{background:'#132952',border:'1px solid rgba(255,255,255,0.1)'}}>
-                  <div className="flex justify-between items-center p-8 pb-4 flex-shrink-0">
+              <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 16px', background: 'rgba(11,30,62,0.6)', backdropFilter: 'blur(8px)' }}>
+                <div style={{ width: '100%', maxWidth: '700px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '20px', display: 'flex', flexDirection: 'column', maxHeight: '80vh', boxShadow: 'var(--shadow-lg)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '28px 32px 16px', flexShrink: 0 }}>
                     <div>
-                      <h3 className="font-display font-black text-lg">Import from AI</h3>
-                      <p className="text-sm text-slate-ai mt-1">Review and select which entries to add to your workbook</p>
+                      <h3 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '18px', color: 'var(--text)', letterSpacing: '-0.02em' }}>Import from AI</h3>
+                      <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 300 }}>Review and select which entries to add to your workbook</p>
                     </div>
-                    <button onClick={() => { setShowImport(false); setImportSuggestions([]) }}
-                      className="text-slate-ai hover:text-white w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10">✕</button>
+                    <button onClick={() => { setShowImport(false); setImportSuggestions([]) }} style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
                   </div>
-
                   {loadingImport ? (
-                    <div className="flex items-center justify-center py-16 gap-3">
-                      <div className="w-5 h-5 rounded-full border-2 border-electric border-t-transparent animate-spin" />
-                      <span className="text-sm text-slate-ai">AI is reading your document…</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px', gap: '12px' }}>
+                      <Spinner /><span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>AI is reading your document…</span>
                     </div>
                   ) : (
                     <>
-                      <div className="px-8 py-3 border-y border-white/[0.07] flex items-center gap-4 flex-shrink-0">
-                        <span className="text-xs text-slate-ai">{importSuggestions.filter(s=>s.selected).length} of {importSuggestions.length} selected</span>
-                        <button onClick={() => setImportSuggestions(s => s.map(x => ({...x, selected: true})))}
-                          className="text-xs text-electric-bright hover:underline">Select all</button>
-                        <button onClick={() => setImportSuggestions(s => s.map(x => ({...x, selected: false})))}
-                          className="text-xs text-slate-ai hover:text-white">Deselect all</button>
+                      <div style={{ padding: '12px 32px', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{importSuggestions.filter(s=>s.selected).length} of {importSuggestions.length} selected</span>
+                        <button onClick={() => setImportSuggestions(s => s.map(x => ({...x, selected: true})))} style={{ fontSize: '12px', color: 'var(--orange)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Select all</button>
+                        <button onClick={() => setImportSuggestions(s => s.map(x => ({...x, selected: false})))} style={{ fontSize: '12px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Deselect all</button>
                       </div>
-                      <div className="overflow-auto flex-1 p-8 pt-4 flex flex-col gap-3">
+                      <div style={{ overflow: 'auto', flex: 1, padding: '20px 32px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {importSuggestions.map((s, i) => (
-                          <div key={i}
-                            onClick={() => setImportSuggestions(prev => prev.map((x, j) => j === i ? {...x, selected: !x.selected} : x))}
-                            className={`flex gap-4 p-4 rounded-xl border cursor-pointer transition-all
-                              ${s.selected ? 'border-electric/30 bg-electric/[0.06]' : 'border-white/[0.07] hover:border-white/15'}`}>
-                            <div className={`w-5 h-5 rounded-[5px] flex items-center justify-center text-[11px] flex-shrink-0 mt-0.5 transition-all
-                              ${s.selected ? 'bg-electric/20 border border-electric/40 text-electric-bright' : 'bg-white/[0.04] border border-white/10'}`}>
+                          <div key={i} onClick={() => setImportSuggestions(prev => prev.map((x, j) => j === i ? {...x, selected: !x.selected} : x))}
+                            style={{ display: 'flex', gap: '14px', padding: '14px 16px', borderRadius: '12px', border: s.selected ? '1px solid var(--orange-border)' : '1px solid var(--border)', background: s.selected ? 'var(--orange-soft)' : 'var(--surface-2)', cursor: 'pointer', transition: 'all 0.15s' }}>
+                            <div style={{ width: '20px', height: '20px', borderRadius: '5px', border: s.selected ? '1px solid var(--orange-border)' : '1px solid var(--border)', background: s.selected ? 'var(--orange-soft)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'var(--orange)', flexShrink: 0, marginTop: '2px' }}>
                               {s.selected ? '✓' : ''}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-semibold bg-electric/10 text-electric-bright px-2 py-0.5 rounded border border-electric/15">{s.clause}</span>
-                                {s.title && <span className="text-xs font-semibold text-white">{s.title}</span>}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                <span style={clauseBadgeStyle}>{s.clause}</span>
+                                {s.title && <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>{s.title}</span>}
                               </div>
-                              <p className="text-sm text-[#aac4e0] leading-relaxed">{s.requirement}</p>
+                              <p style={{ fontSize: '13px', color: 'var(--text-mid)', lineHeight: 1.55 }}>{s.requirement}</p>
                             </div>
                           </div>
                         ))}
                       </div>
-                      <div className="p-8 pt-4 border-t border-white/[0.07] flex gap-3 flex-shrink-0">
-                        <button onClick={() => { setShowImport(false); setImportSuggestions([]) }} className="btn-ghost flex-1">Cancel</button>
-                        <button onClick={importSelected}
-                          disabled={importSuggestions.filter(s=>s.selected).length === 0}
-                          className="btn-primary flex-1">
+                      <div style={{ padding: '16px 32px', borderTop: '1px solid var(--border)', display: 'flex', gap: '10px', flexShrink: 0 }}>
+                        <button onClick={() => { setShowImport(false); setImportSuggestions([]) }} className="btn-ghost" style={{ flex: 1 }}>Cancel</button>
+                        <button onClick={importSelected} disabled={importSuggestions.filter(s=>s.selected).length === 0} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
                           Add {importSuggestions.filter(s=>s.selected).length} entries to workbook
                         </button>
                       </div>
@@ -733,158 +631,108 @@ export default function ProjectPage() {
           </div>
         )}
 
-        {/* ── CHECKLIST TAB ── */}
+        {/* ── CHECKLIST ── */}
         {tab === 'checklist' && (
-          <div className="p-8">
-            <div className="flex justify-between items-start mb-6">
+          <div style={{ padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
               <div>
-                <h2 className="font-display font-bold text-xl tracking-tight">Audit Readiness Checklist</h2>
-                <p className="text-sm text-slate-ai mt-1">
+                <h2 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '22px', letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: '4px' }}>Audit Readiness Checklist</h2>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 300 }}>
                   {checklist.length > 0
                     ? `${checklist.filter(i=>i.status==='green').length} green · ${checklist.filter(i=>i.status==='amber').length} amber · ${checklist.filter(i=>i.status==='red').length} red`
                     : 'Generated once from your standard — free to load after that'}
                 </p>
               </div>
-              {checklist.length === 0 && (
-                <button onClick={generateChecklist} disabled={generatingChecklist} className="btn-primary">
-                  {generatingChecklist ? 'Generating…' : '✨ Generate checklist'}
-                </button>
-              )}
-              {checklist.length > 0 && (
-                <div className="flex items-center gap-2 text-xs text-slate-ai">
-                  <span>Generated once · updates save automatically</span>
-                </div>
-              )}
+              {checklist.length === 0 && <button onClick={generateChecklist} disabled={generatingChecklist} className="btn-primary">{generatingChecklist ? 'Generating…' : '✨ Generate checklist'}</button>}
+              {checklist.length > 0 && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Generated once · updates save automatically</span>}
             </div>
 
-            {/* RAG progress bar */}
             {checklist.length > 0 && (
-              <div className="mb-6">
-                <div className="flex justify-between text-xs text-slate-ai mb-2">
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
                   <span>{checklist.filter(i=>i.status==='green').length} ready · {checklist.filter(i=>i.status==='amber').length} in progress · {checklist.filter(i=>i.status==='red').length} not started</span>
                   <span>{checklist.length} total items</span>
                 </div>
-                <div className="h-2 bg-white/[0.07] rounded-full overflow-hidden flex">
-                  <div className="h-full bg-emerald-400 transition-all" style={{width:`${(checklist.filter(i=>i.status==='green').length/checklist.length)*100}%`}} />
-                  <div className="h-full bg-amber-400 transition-all" style={{width:`${(checklist.filter(i=>i.status==='amber').length/checklist.length)*100}%`}} />
-                  <div className="h-full bg-red-400 transition-all" style={{width:`${(checklist.filter(i=>i.status==='red').length/checklist.length)*100}%`}} />
+                <div style={{ height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
+                  <div style={{ height: '100%', background: '#15803d', width: `${(checklist.filter(i=>i.status==='green').length/checklist.length)*100}%`, transition: 'width 0.3s' }} />
+                  <div style={{ height: '100%', background: '#b45309', width: `${(checklist.filter(i=>i.status==='amber').length/checklist.length)*100}%`, transition: 'width 0.3s' }} />
+                  <div style={{ height: '100%', background: '#b91c1c', width: `${(checklist.filter(i=>i.status==='red').length/checklist.length)*100}%`, transition: 'width 0.3s' }} />
                 </div>
               </div>
             )}
 
-            {/* Empty state */}
             {checklist.length === 0 && !generatingChecklist && (
-              <div className="card rounded-2xl p-16 text-center">
-                <div className="text-4xl mb-4">🎯</div>
-                <div className="font-display font-bold text-xl mb-3">Audit Readiness Checklist</div>
-                <p className="text-sm text-slate-ai mb-2 max-w-md mx-auto">AIstands will read your standard and generate a checklist of auditor questions — the kind an assessor would actually ask.</p>
-                <p className="text-xs text-slate-ai/60 mb-6 max-w-sm mx-auto">Generated once and saved permanently. You fill in responsible persons, evidence references, and RAG status as you prepare.</p>
-                <button onClick={generateChecklist} disabled={generatingChecklist} className="btn-primary">
-                  {generatingChecklist ? <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"/>Generating checklist…</span> : '✨ Generate audit checklist'}
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '64px', textAlign: 'center' }}>
+                <div style={{ fontSize: '40px', marginBottom: '16px' }}>🎯</div>
+                <div style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 700, fontSize: '20px', color: 'var(--text)', marginBottom: '8px' }}>Audit Readiness Checklist</div>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 auto 8px', fontWeight: 300, lineHeight: 1.6 }}>standards.online will read your standard and generate a checklist of auditor questions — the kind an assessor would actually ask.</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-subtle)', maxWidth: '380px', margin: '0 auto 28px' }}>Generated once and saved permanently. Fill in responsible persons, evidence references, and RAG status as you prepare.</p>
+                <button onClick={generateChecklist} disabled={generatingChecklist} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  {generatingChecklist ? <><Spinner size={14} />Generating checklist…</> : '✨ Generate audit checklist'}
                 </button>
               </div>
             )}
 
             {generatingChecklist && (
-              <div className="card rounded-2xl p-16 text-center">
-                <div className="w-8 h-8 rounded-full border-2 border-electric border-t-transparent animate-spin mx-auto mb-4" />
-                <div className="font-display font-bold text-lg mb-2">Generating your audit checklist…</div>
-                <p className="text-sm text-slate-ai">AIstands is reading your standard and writing auditor questions. This takes about 30 seconds and only happens once.</p>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '64px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}><Spinner size={32} /></div>
+                <div style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 700, fontSize: '18px', color: 'var(--text)', marginBottom: '8px' }}>Generating your audit checklist…</div>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 300 }}>Reading your standard and writing auditor questions. This takes about 30 seconds and only happens once.</p>
               </div>
             )}
 
-            {/* Checklist table */}
             {checklist.length > 0 && (
-              <div className="card rounded-2xl overflow-hidden">
-                {/* Header */}
-                <div className="grid gap-4 px-6 py-3 border-b border-white/[0.07] text-xs font-semibold text-slate-ai uppercase tracking-wider"
-                  style={{gridTemplateColumns:'70px 1fr 100px 160px 160px'}}>
-                  <span>Clause</span>
-                  <span>Auditor question</span>
-                  <span>Status</span>
-                  <span>Responsible</span>
-                  <span>Evidence ref</span>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gap: '16px', padding: '12px 24px', borderBottom: '1px solid var(--border)', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'Epilogue, sans-serif', gridTemplateColumns: '70px 1fr 110px 160px 160px' }}>
+                  <span>Clause</span><span>Auditor question</span><span>Status</span><span>Responsible</span><span>Evidence ref</span>
                 </div>
                 {checklist.map((item, i) => (
                   <div key={item.id}
-                    className={`grid gap-4 px-6 py-4 items-start transition-colors hover:bg-white/[0.02]
-                      ${i !== checklist.length - 1 ? 'border-b border-white/[0.07]' : ''}`}
-                    style={{gridTemplateColumns:'70px 1fr 100px 160px 160px'}}>
-
-                    {/* Clause */}
-                    <div className="pt-0.5">
-                      <span className="text-xs font-semibold bg-electric/10 text-electric-bright px-2 py-1 rounded border border-electric/15">
-                        {item.clause}
-                      </span>
-                    </div>
-
-                    {/* Audit question */}
+                    style={{ display: 'grid', gap: '16px', padding: '16px 24px', alignItems: 'start', borderBottom: i !== checklist.length - 1 ? '1px solid var(--border)' : 'none', gridTemplateColumns: '70px 1fr 110px 160px 160px', transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}>
+                    <div style={{ paddingTop: '2px' }}><span style={clauseBadgeStyle}>{item.clause}</span></div>
                     <div>
-                      <p className="text-xs text-slate-ai mb-1">{item.requirement}</p>
-                      <p className="text-sm text-white font-medium leading-snug">{item.audit_question}</p>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>{item.requirement}</p>
+                      <p style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 600, lineHeight: 1.5 }}>{item.audit_question}</p>
                     </div>
-
-                    {/* RAG status */}
-                    <div>
-                      <select
-                        value={item.status || 'red'}
-                        onChange={e => {
-                          const val = e.target.value
-                          setChecklist(c => c.map(x => x.id === item.id ? {...x, status: val} : x))
-                          supabase.from('checklist_items').update({ status: val }).eq('id', item.id)
-                        }}
-                        className={`text-xs px-2 py-1.5 rounded-lg border appearance-none cursor-pointer w-full font-semibold
-                          ${item.status === 'green' ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400' :
-                            item.status === 'amber' ? 'bg-amber-400/10 border-amber-400/30 text-amber-400' :
-                            'bg-red-400/10 border-red-400/30 text-red-400'}`}>
-                        <option value="red">🔴 Not ready</option>
-                        <option value="amber">🟡 In progress</option>
-                        <option value="green">🟢 Ready</option>
-                      </select>
-                    </div>
-
-                    {/* Responsible person */}
-                    <input
-                      className="input text-xs py-1.5"
-                      placeholder="Name / role…"
-                      defaultValue={item.responsible_person}
-                      onBlur={e => {
-                        supabase.from('checklist_items').update({ responsible_person: e.target.value }).eq('id', item.id)
-                        setChecklist(c => c.map(x => x.id === item.id ? {...x, responsible_person: e.target.value} : x))
-                      }}
-                    />
-
-                    {/* Evidence reference */}
-                    <input
-                      className="input text-xs py-1.5"
-                      placeholder="Doc ref, link…"
-                      defaultValue={item.evidence_ref}
-                      onBlur={e => {
-                        supabase.from('checklist_items').update({ evidence_ref: e.target.value }).eq('id', item.id)
-                        setChecklist(c => c.map(x => x.id === item.id ? {...x, evidence_ref: e.target.value} : x))
-                      }}
-                    />
+                    <select value={item.status || 'red'}
+                      onChange={e => { const val = e.target.value; setChecklist(c => c.map(x => x.id === item.id ? {...x, status: val} : x)); supabase.from('checklist_items').update({ status: val }).eq('id', item.id) }}
+                      style={{ fontSize: '12px', padding: '6px 8px', borderRadius: '7px', appearance: 'none', cursor: 'pointer', width: '100%', fontWeight: 600, fontFamily: 'DM Sans, sans-serif',
+                        ...(item.status === 'green' ? { background: 'rgba(21,128,61,0.08)', border: '1px solid rgba(21,128,61,0.22)', color: '#15803d' }
+                          : item.status === 'amber' ? { background: 'rgba(180,83,9,0.08)', border: '1px solid rgba(180,83,9,0.22)', color: '#b45309' }
+                          : { background: 'rgba(185,28,28,0.08)', border: '1px solid rgba(185,28,28,0.22)', color: '#b91c1c' }) }}>
+                      <option value="red">🔴 Not ready</option>
+                      <option value="amber">🟡 In progress</option>
+                      <option value="green">🟢 Ready</option>
+                    </select>
+                    <input className="input" style={{ fontSize: '12px', padding: '6px 10px' }} placeholder="Name / role…" defaultValue={item.responsible_person}
+                      onBlur={e => { supabase.from('checklist_items').update({ responsible_person: e.target.value }).eq('id', item.id); setChecklist(c => c.map(x => x.id === item.id ? {...x, responsible_person: e.target.value} : x)) }} />
+                    <input className="input" style={{ fontSize: '12px', padding: '6px 10px' }} placeholder="Doc ref, link…" defaultValue={item.evidence_ref}
+                      onBlur={e => { supabase.from('checklist_items').update({ evidence_ref: e.target.value }).eq('id', item.id); setChecklist(c => c.map(x => x.id === item.id ? {...x, evidence_ref: e.target.value} : x)) }} />
                   </div>
                 ))}
               </div>
             )}
           </div>
         )}
-        {/* ── VERSIONS TAB ── */}
+
+        {/* ── VERSIONS ── */}
         {tab === 'versions' && (
-          <div className="p-8">
-            <h2 className="font-display font-bold text-xl tracking-tight mb-2">Version Tracking</h2>
-            <p className="text-sm text-slate-ai mb-8">Upload a newer version of this standard to compare what changed.</p>
-            <div className="card rounded-2xl p-10 text-center">
-              <div className="text-4xl mb-4">🔔</div>
-              <div className="font-display font-bold text-lg mb-3">Compare standard versions</div>
-              <p className="text-sm text-slate-ai mb-6 max-w-sm mx-auto">Upload a newer version and AIstands will identify every new, changed, and removed requirement.</p>
+          <div style={{ padding: '32px' }}>
+            <h2 style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 800, fontSize: '22px', letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: '6px' }}>Version Tracking</h2>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '32px', fontWeight: 300 }}>Upload a newer version of this standard to compare what changed.</p>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '64px', textAlign: 'center' }}>
+              <div style={{ fontSize: '40px', marginBottom: '16px' }}>🔔</div>
+              <div style={{ fontFamily: 'Epilogue, sans-serif', fontWeight: 700, fontSize: '18px', color: 'var(--text)', marginBottom: '8px' }}>Compare standard versions</div>
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '380px', margin: '0 auto 24px', fontWeight: 300, lineHeight: 1.6 }}>Upload a newer version and standards.online will identify every new, changed, and removed requirement.</p>
               <button className="btn-primary">Upload newer version</button>
             </div>
           </div>
         )}
 
       </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes bounce{0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-5px)}}`}</style>
     </div>
   )
 }

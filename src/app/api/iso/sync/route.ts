@@ -133,10 +133,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Deduplicate by reference (ISO CSV can contain duplicates)
+    const seen = new Set<string>()
+    const dedupedRecords = records.filter(r => {
+      if (seen.has(r.reference)) return false
+      seen.add(r.reference)
+      return true
+    })
+
     // Batch upsert in chunks of 500
     const CHUNK = 500
-    for (let i = 0; i < records.length; i += CHUNK) {
-      const chunk = records.slice(i, i + CHUNK)
+    for (let i = 0; i < dedupedRecords.length; i += CHUNK) {
+      const chunk = dedupedRecords.slice(i, i + CHUNK)
       const { error } = await supabase
         .from('iso_standards_cache')
         .upsert(chunk, { onConflict: 'reference' })
@@ -145,16 +153,16 @@ export async function POST(req: NextRequest) {
 
     // Log sync
     await supabase.from('iso_sync_meta').insert({
-      records_synced: records.length,
+      records_synced: dedupedRecords.length,
       changes_found: changedRefs.length,
       synced_at: new Date().toISOString(),
     })
 
-    console.log(`ISO sync complete: ${records.length} records, ${changedRefs.length} changes`)
+    console.log(`ISO sync complete: ${dedupedRecords.length} records, ${changedRefs.length} changes`)
 
     return NextResponse.json({
       success: true,
-      records: records.length,
+      records: dedupedRecords.length,
       changes: changedRefs.length,
       changedRefs: changedRefs.slice(0, 20), // preview
     })

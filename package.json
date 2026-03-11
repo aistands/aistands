@@ -24,7 +24,8 @@
     "react-dropzone": "^14.2.3",
     "react-hot-toast": "^2.4.1",
     "date-fns": "^3.6.0",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "resend": "^3.2.0"
   },
   "devDependencies": {
     "typescript": "^5",

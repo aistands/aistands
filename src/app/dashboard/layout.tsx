@@ -9,6 +9,7 @@ const NAV = [
   { href: '/dashboard',          icon: '🏠', label: 'Overview' },
   { href: '/dashboard/projects', icon: '📁', label: 'Projects' },
   { href: '/dashboard/library',  icon: '📚', label: 'Standards Library' },
+  { href: '/dashboard/alerts',   icon: '🔔', label: 'ISO Alerts',  badge: 'Pro' },
   { href: '/dashboard/settings', icon: '⚙️', label: 'Settings' },
 ]
 
@@ -59,13 +60,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="flex-1 p-3 flex flex-col gap-0.5">
-          {NAV.map(({ href, icon, label }) => {
+          {NAV.map((navItem: any) => {
+            const { href, icon, label, badge } = navItem
             const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
             return (
               <Link key={href} href={href}
                 className={`sb-nav-item ${active ? 'active' : ''}`}>
                 <span style={{ fontSize: '15px', width: '18px', textAlign: 'center' }}>{icon}</span>
-                {label}
+                <span style={{ flex: 1 }}>{label}</span>
+                {badge && (
+                  <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '1px 6px', borderRadius: '4px', background: 'rgba(232,99,26,0.15)', color: 'var(--orange)', border: '1px solid rgba(232,99,26,0.25)', fontFamily: 'Epilogue, sans-serif' }}>
+                    {badge}
+                  </span>
+                )}
               </Link>
             )
           })}

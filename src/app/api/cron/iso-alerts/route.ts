@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get user emails
-    const userIds = [...byUser.keys()]
+    const userIds = Array.from(byUser.keys())
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, email, full_name')
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
 
     let emailsSent = 0
 
-    for (const [userId, subs] of byUser) {
+    for (const [userId, subs] of Array.from(byUser.entries())) {
       const profile = profileMap.get(userId)
       if (!profile?.email) continue
 

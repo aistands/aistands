@@ -13,7 +13,7 @@ const supabase = createClient(
 
 // ISO Open Data — deliverables CSV
 // Source: https://www.iso.org/open-data.html
-const ISO_CSV_URL = 'https://www.iso.org/open-data/deliverables.csv'
+const ISO_CSV_URL = 'https://isopublicstorageprod.blob.core.windows.net/opendata/_latest/iso_deliverables_metadata/csv/iso_deliverables_metadata.csv'
 
 function hash(str: string) {
   return crypto.createHash('md5').update(str).digest('hex')
